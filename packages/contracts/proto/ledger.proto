@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package ledgerflow.ledger.v1;
+
+service LedgerService {
+  rpc CreateTransfer (CreateTransferRequest) returns (Transfer);
+  rpc ReverseTransfer (ReverseTransferRequest) returns (Transfer);
+  rpc ListTransfers (PageRequest) returns (TransferPage);
+  rpc ListAccounts (Empty) returns (AccountList);
+  rpc ListSettlements (PageRequest) returns (SettlementPage);
+  rpc GetJournal (IdRequest) returns (Journal);
+  rpc GetSummary (Empty) returns (DashboardSummary);
+  rpc Health (Empty) returns (HealthResponse);
+}
+
+message Empty {}
+message IdRequest { string id = 1; }
+message PageRequest { int32 page = 1; int32 page_size = 2; }
+
+message CreateTransferRequest {
+  string idempotency_key = 1;
+  string source_account_id = 2;
+  string destination_account_id = 3;
+  int64 amount_minor = 4;
+  string currency = 5;
+  string reference = 6;
+}
+
+message ReverseTransferRequest {
+  string transfer_id = 1;
+  string idempotency_key = 2;
+  string reason = 3;
+}
+
+message Transfer {
+  string id = 1;
+  string idempotency_key = 2;
+  string source_account_id = 3;
+  string destination_account_id = 4;
+  int64 amount_minor = 5;
+  string currency = 6;
+  string reference = 7;
+  string status = 8;
+  string journal_id = 9;
+  string created_at = 10;
+  optional string settled_at = 11;
+  optional string reversed_at = 12;
+}
+
+message Account {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  string type = 4;
+  string currency = 5;
+  int64 balance_minor = 6;
+}
+
+message Posting {
+  string id = 1;
+  string account_id = 2;
+  string account_code = 3;
+  string account_name = 4;
+  string side = 5;
+  int64 amount_minor = 6;
+}
+
+message Journal {
+  string id = 1;
+  string transfer_id = 2;
+  string currency = 3;
+  string reference = 4;
+  optional string reversal_of_journal_id = 5;
+  string created_at = 6;
+  repeated Posting postings = 7;
+}
+
+message Settlement {
+  string id = 1;
+  string transfer_id = 2;
+  string event_id = 3;
+  string status = 4;
+  int32 attempt_count = 5;
+  string created_at = 6;
+  optional string completed_at = 7;
+}
+
+message TransferPage { repeated Transfer items = 1; int32 total = 2; int32 page = 3; int32 page_size = 4; }
+message AccountList { repeated Account items = 1; }
+message SettlementPage { repeated Settlement items = 1; int32 total = 2; int32 page = 3; int32 page_size = 4; }
+
+message VolumePoint { string hour = 1; int64 amount_minor = 2; }
+message DashboardSummary {
+  int64 total_volume_minor = 1;
+  int64 settled_volume_minor = 2;
+  int32 pending_count = 3;
+  int32 settled_count = 4;
+  int32 failed_count = 5;
+  int32 account_count = 6;
+  repeated Transfer recent_transfers = 7;
+  repeated VolumePoint volume_by_hour = 8;
+  string generated_at = 9;
+}
+
+message HealthResponse { string status = 1; }

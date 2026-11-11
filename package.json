@@ -1,0 +1,37 @@
+{
+  "name": "ledgerflow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local-first event-driven financial operations simulator.",
+  "engines": {
+    "node": ">=24.11.0",
+    "npm": ">=11.6.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev": "concurrently -n gateway,ledger,worker,web -c cyan,green,magenta,blue \"npm run dev -w @ledgerflow/api-gateway\" \"npm run dev -w @ledgerflow/ledger-service\" \"npm run dev -w @ledgerflow/settlement-worker\" \"npm run dev -w @ledgerflow/web\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings=0",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "overrides": {
+    "minimatch": "11.0.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "26.6.6",
+    "concurrently": "9.2.5",
+    "eslint": "9.39.5",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "16.5.0",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.46.4"
+  }
+}
