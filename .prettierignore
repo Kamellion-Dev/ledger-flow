@@ -1,0 +1,5 @@
+apps/web/next-env.d.ts
+apps/ledger-service/src/generated/
+**/.next/
+**/dist/
+**/coverage/

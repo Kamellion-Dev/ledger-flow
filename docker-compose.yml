@@ -1,0 +1,127 @@
+name: ledgerflow
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ledgerflow
+      POSTGRES_USER: ledgerflow
+      POSTGRES_PASSWORD: ledgerflow
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ledgerflow -d ledgerflow']
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ledgerflow
+      RABBITMQ_DEFAULT_PASS: ledgerflow
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  redis:
+    image: redis:8-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  ledger-service:
+    image: ledgerflow-app:local
+    build:
+      context: .
+    command: >-
+      sh -c "npm run db:deploy && npm run db:seed && npm run start -w @ledgerflow/ledger-service"
+    environment: &app-environment
+      DATABASE_URL: postgresql://ledgerflow:ledgerflow@postgres:5432/ledgerflow
+      RABBITMQ_URL: amqp://ledgerflow:ledgerflow@rabbitmq:5672
+      REDIS_URL: redis://redis:6379
+      LEDGER_GRPC_URL: 0.0.0.0:50051
+      JWT_SECRET: local-development-only-change-me-now
+      DEMO_EMAIL: operator@ledgerflow.local
+      DEMO_PASSWORD: ledgerflow-demo
+      GATEWAY_PORT: 3001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - '50051:50051'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "const n=require('net').connect(50051,'127.0.0.1');n.on('connect',()=>process.exit(0));n.on('error',()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  settlement-worker:
+    image: ledgerflow-app:local
+    command: ['npm', 'run', 'start', '-w', '@ledgerflow/settlement-worker']
+    environment: *app-environment
+    depends_on:
+      ledger-service:
+        condition: service_healthy
+
+  api-gateway:
+    image: ledgerflow-app:local
+    command: ['npm', 'run', 'start', '-w', '@ledgerflow/api-gateway']
+    environment:
+      <<: *app-environment
+      LEDGER_GRPC_URL: ledger-service:50051
+    depends_on:
+      ledger-service:
+        condition: service_healthy
+    ports:
+      - '3001:3001'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3001/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  web:
+    image: ledgerflow-app:local
+    command: ['npm', 'run', 'start', '-w', '@ledgerflow/web']
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+
+volumes:
+  postgres_data:
+  redis_data:

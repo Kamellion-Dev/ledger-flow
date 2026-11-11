@@ -6,7 +6,10 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   { ignores: ['**/dist/**', '**/.next/**', '**/coverage/**', '**/generated/**'] },
   eslint.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
+  ...tseslint.configs.recommendedTypeChecked.map((config) => ({
+    ...config,
+    files: ['**/*.ts', '**/*.tsx'],
+  })),
   prettier,
   {
     files: ['**/*.ts', '**/*.tsx'],
@@ -17,6 +20,19 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    files: ['**/*.config.ts'],
+    ...tseslint.configs.disableTypeChecked,
+  },
+  {
+    files: ['**/*.spec.ts', '**/*.test.tsx', '**/test/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/require-await': 'off',
     },
   },
 );
