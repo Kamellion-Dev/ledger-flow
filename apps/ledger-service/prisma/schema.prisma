@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+}
+
+enum TransferStatus {
+  PENDING
+  SETTLED
+  REVERSED
+  FAILED
+}
+
+enum PostingSide {
+  DEBIT
+  CREDIT
+}
+
+enum SettlementStatus {
+  PENDING
+  SETTLED
+  FAILED
+}
+
+enum OutboxStatus {
+  PENDING
+  PUBLISHED
+}
+
+enum IdempotencyOperation {
+  CREATE_TRANSFER
+  REVERSE_TRANSFER
+}
+
+model Account {
+  id           String      @id @default(uuid())
+  code         String      @unique
+  name         String
+  type         AccountType
+  currency     String      @db.VarChar(3)
+  balanceMinor BigInt      @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  postings     Posting[]
+  sentTransfers     Transfer[] @relation("SourceAccount")
+  receivedTransfers Transfer[] @relation("DestinationAccount")
+}
+
+model Transfer {
+  id                   String         @id @default(uuid())
+  idempotencyKey       String         @unique
+  sourceAccountId      String
+  destinationAccountId String
+  amountMinor          BigInt
+  currency             String         @db.VarChar(3)
+  reference            String
+  status               TransferStatus @default(PENDING)
+  journalId            String         @unique
+  createdAt            DateTime       @default(now())
+  settledAt            DateTime?
+  reversedAt           DateTime?
+  sourceAccount        Account        @relation("SourceAccount", fields: [sourceAccountId], references: [id])
+  destinationAccount   Account        @relation("DestinationAccount", fields: [destinationAccountId], references: [id])
+  journals             Journal[]
+  settlement           Settlement?
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+}
+
+model Journal {
+  id                  String    @id @default(uuid())
+  transferId          String
+  currency            String    @db.VarChar(3)
+  reference           String
+  reversalOfJournalId String?   @unique
+  createdAt           DateTime  @default(now())
+  transfer            Transfer  @relation(fields: [transferId], references: [id])
+  postings            Posting[]
+  reversalOf          Journal?  @relation("JournalReversal", fields: [reversalOfJournalId], references: [id])
+  reversal            Journal?  @relation("JournalReversal")
+
+  @@index([transferId, createdAt])
+}
+
+model Posting {
+  id          String      @id @default(uuid())
+  journalId   String
+  accountId   String
+  side        PostingSide
+  amountMinor BigInt
+  createdAt   DateTime    @default(now())
+  journal     Journal     @relation(fields: [journalId], references: [id])
+  account     Account     @relation(fields: [accountId], references: [id])
+
+  @@index([journalId])
+  @@index([accountId, createdAt])
+}
+
+model IdempotencyRecord {
+  key         String               @id
+  operation   IdempotencyOperation
+  requestHash String
+  resourceId  String
+  createdAt   DateTime             @default(now())
+
+  @@index([resourceId])
+}
+
+model OutboxEvent {
+  id             String       @id
+  eventName      String
+  correlationId  String
+  payload        Json
+  status         OutboxStatus @default(PENDING)
+  attemptCount   Int          @default(0)
+  createdAt      DateTime     @default(now())
+  publishedAt    DateTime?
+
+  @@index([status, createdAt])
+}
+
+model Settlement {
+  id           String           @id @default(uuid())
+  transferId   String           @unique
+  eventId      String           @unique
+  status       SettlementStatus @default(PENDING)
+  attemptCount Int              @default(1)
+  createdAt    DateTime         @default(now())
+  completedAt  DateTime?
+  transfer     Transfer         @relation(fields: [transferId], references: [id])
+
+  @@index([status, createdAt])
+}
+
+model ProcessedEvent {
+  eventId     String   @id
+  eventName   String
+  processedAt DateTime @default(now())
+}
