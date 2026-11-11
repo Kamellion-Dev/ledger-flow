@@ -18,8 +18,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="app-shell">
       <aside className="sidebar">
         <Link className="brand" href="/" aria-label="LedgerFlow overview">
-          <span className="brand-mark"><WalletCards aria-hidden="true" /></span>
-          <span>Ledger<span>Flow</span></span>
+          <span className="brand-mark">
+            <WalletCards aria-hidden="true" />
+          </span>
+          <span>
+            Ledger<span>Flow</span>
+          </span>
         </Link>
         <nav aria-label="Primary navigation">
           {navigation.map(({ href, label, icon: Icon }) => (
@@ -30,7 +34,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
         <div className="environment-card">
           <Radio aria-hidden="true" />
-          <div><strong>Local sandbox</strong><span>Simulated USD only</span></div>
+          <div>
+            <strong>Local sandbox</strong>
+            <span>Simulated USD only</span>
+          </div>
         </div>
       </aside>
       <div className="workspace">
@@ -41,7 +48,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <div className="operator-chip">
             <span className="avatar">MK</span>
-            <span><strong>Demo operator</strong><small>Full access</small></span>
+            <span>
+              <strong>Demo operator</strong>
+              <small>Full access</small>
+            </span>
           </div>
         </header>
         <main>{children}</main>
@@ -49,7 +59,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {navigation.map(({ href, label, icon: Icon }) => (
           <Link className={pathname === href ? 'active' : ''} href={href} key={href}>
-            <Icon aria-hidden="true" /><span>{label}</span>
+            <Icon aria-hidden="true" />
+            <span>{label}</span>
           </Link>
         ))}
       </nav>

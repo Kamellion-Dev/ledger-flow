@@ -44,14 +44,24 @@ export function TransferForm({ onSubmit }: { onSubmit?: (input: TransferInput) =
       <div className="form-row two-columns">
         <label htmlFor="source-account">
           <span>From account</span>
-          <select id="source-account" aria-label="From account" value={source} onChange={(event) => setSource(event.target.value)}>
+          <select
+            id="source-account"
+            aria-label="From account"
+            value={source}
+            onChange={(event) => setSource(event.target.value)}
+          >
             <option value="wallet-alice">Alice Wallet · $100.00</option>
             <option value="wallet-bob">Bob Wallet · $50.00</option>
           </select>
         </label>
         <label htmlFor="destination-account">
           <span>To account</span>
-          <select id="destination-account" aria-label="To account" value={destination} onChange={(event) => setDestination(event.target.value)}>
+          <select
+            id="destination-account"
+            aria-label="To account"
+            value={destination}
+            onChange={(event) => setDestination(event.target.value)}
+          >
             <option value="wallet-bob">Bob Wallet · $50.00</option>
             <option value="wallet-alice">Alice Wallet · $100.00</option>
           </select>
@@ -77,13 +87,24 @@ export function TransferForm({ onSubmit }: { onSubmit?: (input: TransferInput) =
         </label>
         <label htmlFor="transfer-reference">
           <span>Reference</span>
-          <input id="transfer-reference" aria-label="Reference" value={reference} maxLength={140} onChange={(event) => setReference(event.target.value)} />
+          <input
+            id="transfer-reference"
+            aria-label="Reference"
+            value={reference}
+            maxLength={140}
+            onChange={(event) => setReference(event.target.value)}
+          />
         </label>
       </div>
-      {error ? <p className="form-error" role="alert">{error}</p> : null}
+      {error ? (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      ) : null}
       {submitted && !error ? (
         <p className="form-success" role="status">
-          <ShieldCheck aria-hidden="true" /> Demo transfer validated. Connect the local API to post it.
+          <ShieldCheck aria-hidden="true" /> Demo transfer validated. Connect the local API to post
+          it.
         </p>
       ) : null}
       <button className="primary-button" type="submit">
