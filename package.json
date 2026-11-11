@@ -16,6 +16,7 @@
     "db:generate": "npm run db:generate -w @ledgerflow/ledger-service",
     "db:deploy": "npm run db:deploy -w @ledgerflow/ledger-service",
     "db:seed": "npm run db:seed -w @ledgerflow/ledger-service",
+    "predev": "npm run build -w @ledgerflow/contracts && npm run build -w @ledgerflow/ledger-domain && npm run db:generate -w @ledgerflow/ledger-service",
     "dev": "concurrently -n gateway,ledger,worker,web -c cyan,green,magenta,blue \"npm run dev -w @ledgerflow/api-gateway\" \"npm run dev -w @ledgerflow/ledger-service\" \"npm run dev -w @ledgerflow/settlement-worker\" \"npm run dev -w @ledgerflow/web\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

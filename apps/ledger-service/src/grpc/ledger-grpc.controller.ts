@@ -2,15 +2,23 @@ import { randomUUID } from 'node:crypto';
 import { Controller } from '@nestjs/common';
 import {
   GrpcAlreadyExistsException,
+  GrpcFailedPreconditionException,
+  GrpcInternalException,
   GrpcInvalidArgumentException,
   GrpcMethod,
   GrpcNotFoundException,
 } from '@nestjs/microservices';
 import type { Currency, ReverseTransferCommand } from '@ledgerflow/contracts';
 import {
+  JournalValidationError,
+  MoneyValidationError,
+  TransferValidationError,
+} from '@ledgerflow/ledger-domain';
+import {
   IdempotencyConflictError,
   LedgerApplicationService,
   LedgerResourceNotFoundError,
+  TransferStateError,
 } from '../ledger/ledger-application.service.js';
 
 interface CreateTransferRequest {
@@ -113,8 +121,15 @@ function mapGrpcError(error: unknown): Error {
   if (error instanceof LedgerResourceNotFoundError) {
     return new GrpcNotFoundException(error.message);
   }
-  if (error instanceof Error) {
+  if (error instanceof TransferStateError) {
+    return new GrpcFailedPreconditionException(error.message);
+  }
+  if (
+    error instanceof MoneyValidationError ||
+    error instanceof JournalValidationError ||
+    error instanceof TransferValidationError
+  ) {
     return new GrpcInvalidArgumentException(error.message);
   }
-  return new GrpcInvalidArgumentException('Invalid ledger request');
+  return new GrpcInternalException('Ledger operation failed');
 }

@@ -81,15 +81,15 @@ function createUnitOfWork(state: LedgerState): LedgerUnitOfWork {
       return state.idempotency.find((item) => item.key === key);
     },
     async createTransfer(aggregate: CreateTransferAggregate) {
-      replaceBalance(
+      adjustBalance(
         state.accounts,
         aggregate.transfer.sourceAccountId,
-        aggregate.sourceBalanceMinor,
+        -aggregate.transfer.amountMinor,
       );
-      replaceBalance(
+      adjustBalance(
         state.accounts,
         aggregate.transfer.destinationAccountId,
-        aggregate.destinationBalanceMinor,
+        aggregate.transfer.amountMinor,
       );
       state.transfers.push(structuredClone(aggregate.transfer));
       state.journals.push(structuredClone(aggregate.journal));
@@ -97,15 +97,15 @@ function createUnitOfWork(state: LedgerState): LedgerUnitOfWork {
       state.outbox.push(structuredClone(aggregate.outbox));
     },
     async reverseTransfer(aggregate: ReverseTransferAggregate) {
-      replaceBalance(
+      adjustBalance(
         state.accounts,
         aggregate.transfer.sourceAccountId,
-        aggregate.sourceBalanceMinor,
+        aggregate.transfer.amountMinor,
       );
-      replaceBalance(
+      adjustBalance(
         state.accounts,
         aggregate.transfer.destinationAccountId,
-        aggregate.destinationBalanceMinor,
+        -aggregate.transfer.amountMinor,
       );
       const index = state.transfers.findIndex((item) => item.id === aggregate.transfer.id);
       if (index < 0) throw new Error('Transfer missing during reversal');
@@ -116,9 +116,9 @@ function createUnitOfWork(state: LedgerState): LedgerUnitOfWork {
   };
 }
 
-function replaceBalance(accounts: AccountView[], accountId: string, balanceMinor: number): void {
+function adjustBalance(accounts: AccountView[], accountId: string, deltaMinor: number): void {
   const index = accounts.findIndex((account) => account.id === accountId);
   const account = accounts[index];
   if (index < 0 || !account) throw new Error('Account missing during balance update');
-  accounts[index] = { ...account, balanceMinor };
+  accounts[index] = { ...account, balanceMinor: account.balanceMinor + deltaMinor };
 }

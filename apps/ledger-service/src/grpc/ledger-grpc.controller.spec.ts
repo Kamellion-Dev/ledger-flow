@@ -1,3 +1,4 @@
+import { GrpcInternalException } from '@nestjs/microservices';
 import { describe, expect, it } from 'vitest';
 import { LedgerApplicationService } from '../ledger/ledger-application.service.js';
 import { InMemoryLedgerRepository } from '../../test/in-memory-ledger.repository.js';
@@ -54,5 +55,25 @@ describe('LedgerGrpcController', () => {
 
   it('reports service liveness without querying dependencies', () => {
     expect(createController().health()).toEqual({ status: 'ok' });
+  });
+
+  it('hides unexpected infrastructure errors behind an internal status', async () => {
+    const service = {
+      createTransfer: async () => {
+        throw new Error('database connection details');
+      },
+    } as unknown as LedgerApplicationService;
+    const controller = new LedgerGrpcController(service);
+
+    await expect(
+      controller.createTransfer({
+        idempotencyKey: 'grpc-demo-002',
+        sourceAccountId: 'wallet-alice',
+        destinationAccountId: 'wallet-bob',
+        amountMinor: 500,
+        currency: 'USD',
+        reference: 'Private failure',
+      }),
+    ).rejects.toEqual(new GrpcInternalException('Ledger operation failed'));
   });
 });

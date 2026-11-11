@@ -40,16 +40,12 @@ export interface CreateTransferAggregate {
   readonly journal: JournalView;
   readonly idempotency: IdempotencyRecord;
   readonly outbox: OutboxRecord;
-  readonly sourceBalanceMinor: number;
-  readonly destinationBalanceMinor: number;
 }
 
 export interface ReverseTransferAggregate {
   readonly transfer: TransferView;
   readonly journal: JournalView;
   readonly idempotency: IdempotencyRecord;
-  readonly sourceBalanceMinor: number;
-  readonly destinationBalanceMinor: number;
 }
 
 export interface LedgerUnitOfWork {

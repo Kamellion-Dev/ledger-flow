@@ -153,8 +153,6 @@ export class LedgerApplicationService {
         journal,
         idempotency,
         outbox,
-        sourceBalanceMinor: source.balanceMinor - command.amountMinor,
-        destinationBalanceMinor: destination.balanceMinor + command.amountMinor,
       };
 
       await unitOfWork.createTransfer(aggregate);
@@ -228,8 +226,6 @@ export class LedgerApplicationService {
         transfer: updatedTransfer,
         journal,
         idempotency,
-        sourceBalanceMinor: source.balanceMinor + transfer.amountMinor,
-        destinationBalanceMinor: destination.balanceMinor - transfer.amountMinor,
       };
 
       await unitOfWork.reverseTransfer(aggregate);

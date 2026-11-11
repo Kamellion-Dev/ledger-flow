@@ -20,7 +20,7 @@ A CRUD transfer API can create duplicate charges or inconsistent balances when a
 
 ## Solution
 
-LedgerFlow treats each simulated transfer as one balanced journal. The ledger service writes the transfer, postings, balance snapshots, idempotency record, and outbox event in one PostgreSQL transaction. A dispatcher publishes the stored event to RabbitMQ. The settlement worker publishes a deterministic result and saves replay state in Redis before acknowledging the message. The ledger service consumes that result idempotently.
+LedgerFlow treats each simulated transfer as one balanced journal. The ledger service applies guarded atomic balance updates and writes the transfer, postings, idempotency record, and outbox event in one PostgreSQL transaction. A dispatcher publishes the stored event to RabbitMQ. The settlement worker publishes a deterministic result and saves replay state in Redis before acknowledging the message. The ledger service consumes that result idempotently.
 
 ## Architecture
 
@@ -46,6 +46,7 @@ The ledger service is the only PostgreSQL owner. Redis is coordination data, not
 - Balanced debit and credit postings for every journal.
 - Immutable posting history and explicit compensating reversals.
 - Request idempotency with payload-conflict detection.
+- Conditional balance updates that prevent concurrent transfers from spending the same funds.
 - Transactional outbox with persistent RabbitMQ messages.
 - Manual acknowledgement after successful event handling.
 - Deterministic settlement result IDs for safe replay.

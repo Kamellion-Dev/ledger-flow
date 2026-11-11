@@ -6,6 +6,7 @@ import type {
   LedgerUnitOfWork,
   ReverseTransferAggregate,
 } from '../ledger/ledger-repository.js';
+import { TransferStateError } from '../ledger/ledger-application.service.js';
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import { mapAccount, mapJournal, mapSettlement, mapTransfer } from './prisma-mappers.js';
 
@@ -94,13 +95,20 @@ class PrismaLedgerUnitOfWork implements LedgerUnitOfWork {
   }
 
   async createTransfer(aggregate: CreateTransferAggregate): Promise<void> {
-    await this.transaction.account.update({
-      where: { id: aggregate.transfer.sourceAccountId },
-      data: { balanceMinor: BigInt(aggregate.sourceBalanceMinor) },
+    const amountMinor = BigInt(aggregate.transfer.amountMinor);
+    const sourceUpdate = await this.transaction.account.updateMany({
+      where: {
+        id: aggregate.transfer.sourceAccountId,
+        balanceMinor: { gte: amountMinor },
+      },
+      data: { balanceMinor: { decrement: amountMinor } },
     });
+    if (sourceUpdate.count !== 1) {
+      throw new TransferStateError('Source account balance changed or is insufficient');
+    }
     await this.transaction.account.update({
       where: { id: aggregate.transfer.destinationAccountId },
-      data: { balanceMinor: BigInt(aggregate.destinationBalanceMinor) },
+      data: { balanceMinor: { increment: amountMinor } },
     });
     await this.transaction.transfer.create({
       data: {
@@ -154,21 +162,32 @@ class PrismaLedgerUnitOfWork implements LedgerUnitOfWork {
   }
 
   async reverseTransfer(aggregate: ReverseTransferAggregate): Promise<void> {
-    await this.transaction.account.update({
-      where: { id: aggregate.transfer.sourceAccountId },
-      data: { balanceMinor: BigInt(aggregate.sourceBalanceMinor) },
-    });
-    await this.transaction.account.update({
-      where: { id: aggregate.transfer.destinationAccountId },
-      data: { balanceMinor: BigInt(aggregate.destinationBalanceMinor) },
-    });
-    await this.transaction.transfer.update({
-      where: { id: aggregate.transfer.id },
+    const transferUpdate = await this.transaction.transfer.updateMany({
+      where: { id: aggregate.transfer.id, status: { not: 'REVERSED' } },
       data: {
         status: aggregate.transfer.status,
         reversedAt: aggregate.transfer.reversedAt ? new Date(aggregate.transfer.reversedAt) : null,
       },
     });
+    if (transferUpdate.count !== 1) {
+      throw new TransferStateError('Transfer was already reversed');
+    }
+
+    const amountMinor = BigInt(aggregate.transfer.amountMinor);
+    await this.transaction.account.update({
+      where: { id: aggregate.transfer.sourceAccountId },
+      data: { balanceMinor: { increment: amountMinor } },
+    });
+    const destinationUpdate = await this.transaction.account.updateMany({
+      where: {
+        id: aggregate.transfer.destinationAccountId,
+        balanceMinor: { gte: amountMinor },
+      },
+      data: { balanceMinor: { decrement: amountMinor } },
+    });
+    if (destinationUpdate.count !== 1) {
+      throw new TransferStateError('Destination account cannot fund the reversal');
+    }
     await this.transaction.journal.create({
       data: {
         id: aggregate.journal.id,
