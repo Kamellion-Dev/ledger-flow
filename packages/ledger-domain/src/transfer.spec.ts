@@ -58,10 +58,10 @@ describe('buildTransferJournal', () => {
 
   it('rejects a non-USD command at runtime', () => {
     expect(() =>
-      buildTransferJournal(
-        { ...command, currency: 'EUR' } as unknown as CreateTransferCommand,
-        { source, destination },
-      ),
+      buildTransferJournal({ ...command, currency: 'EUR' } as unknown as CreateTransferCommand, {
+        source,
+        destination,
+      }),
     ).toThrow('USD');
   });
 

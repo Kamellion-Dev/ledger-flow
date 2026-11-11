@@ -12,10 +12,7 @@ export class RedisReplayStore implements SettlementReplayStore {
     return value ? (JSON.parse(value) as LedgerEvent<SettlementCompletedData>) : undefined;
   }
 
-  async save(
-    sourceEventId: string,
-    event: LedgerEvent<SettlementCompletedData>,
-  ): Promise<void> {
+  async save(sourceEventId: string, event: LedgerEvent<SettlementCompletedData>): Promise<void> {
     await this.redis.set(this.key(sourceEventId), JSON.stringify(event), 'EX', RETENTION_SECONDS);
   }
 

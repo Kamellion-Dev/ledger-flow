@@ -6,13 +6,8 @@ import type {
   LedgerUnitOfWork,
   ReverseTransferAggregate,
 } from '../ledger/ledger-repository.js';
-import { Prisma, type PrismaClient } from '../generated/prisma/client.js';
-import {
-  mapAccount,
-  mapJournal,
-  mapSettlement,
-  mapTransfer,
-} from './prisma-mappers.js';
+import type { Prisma, PrismaClient } from '../generated/prisma/client.js';
+import { mapAccount, mapJournal, mapSettlement, mapTransfer } from './prisma-mappers.js';
 
 const journalInclude = { postings: { include: { account: true } } } as const;
 

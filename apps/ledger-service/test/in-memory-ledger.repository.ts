@@ -1,9 +1,4 @@
-import type {
-  AccountView,
-  JournalView,
-  SettlementView,
-  TransferView,
-} from '@ledgerflow/contracts';
+import type { AccountView, JournalView, SettlementView, TransferView } from '@ledgerflow/contracts';
 import type {
   CreateTransferAggregate,
   LedgerRepository,
@@ -86,7 +81,11 @@ function createUnitOfWork(state: LedgerState): LedgerUnitOfWork {
       return state.idempotency.find((item) => item.key === key);
     },
     async createTransfer(aggregate: CreateTransferAggregate) {
-      replaceBalance(state.accounts, aggregate.transfer.sourceAccountId, aggregate.sourceBalanceMinor);
+      replaceBalance(
+        state.accounts,
+        aggregate.transfer.sourceAccountId,
+        aggregate.sourceBalanceMinor,
+      );
       replaceBalance(
         state.accounts,
         aggregate.transfer.destinationAccountId,
@@ -98,7 +97,11 @@ function createUnitOfWork(state: LedgerState): LedgerUnitOfWork {
       state.outbox.push(structuredClone(aggregate.outbox));
     },
     async reverseTransfer(aggregate: ReverseTransferAggregate) {
-      replaceBalance(state.accounts, aggregate.transfer.sourceAccountId, aggregate.sourceBalanceMinor);
+      replaceBalance(
+        state.accounts,
+        aggregate.transfer.sourceAccountId,
+        aggregate.sourceBalanceMinor,
+      );
       replaceBalance(
         state.accounts,
         aggregate.transfer.destinationAccountId,

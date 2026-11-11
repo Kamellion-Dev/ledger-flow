@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { OutboxRecord } from '../ledger/ledger-repository.js';
-import {
-  OutboxDispatcher,
-  type EventPublisher,
-  type OutboxStore,
-} from './outbox-dispatcher.js';
+import { OutboxDispatcher, type EventPublisher, type OutboxStore } from './outbox-dispatcher.js';
 
 function record(): OutboxRecord {
   return {

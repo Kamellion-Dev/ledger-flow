@@ -9,10 +9,7 @@ import type {
 } from '@ledgerflow/contracts';
 import { LedgerEventName } from '@ledgerflow/contracts';
 import { RedisReplayStore } from './redis-replay.store.js';
-import {
-  SettlementProcessor,
-  type SettlementEventPublisher,
-} from './settlement-processor.js';
+import { SettlementProcessor, type SettlementEventPublisher } from './settlement-processor.js';
 
 const EXCHANGE = 'ledgerflow.events';
 const QUEUE = 'ledgerflow.settlement.transfer-posted';
@@ -32,7 +29,11 @@ export class WorkerRuntime implements OnModuleInit, OnModuleDestroy, SettlementE
     }
 
     this.redis = new Redis(redisUrl, { maxRetriesPerRequest: 3, lazyConnect: false });
-    this.processor = new SettlementProcessor(new RedisReplayStore(this.redis), this, () => new Date());
+    this.processor = new SettlementProcessor(
+      new RedisReplayStore(this.redis),
+      this,
+      () => new Date(),
+    );
     this.connection = amqp.connect([rabbitUrl]);
     this.channel = this.connection.createChannel({
       setup: async (channel: Channel) => {

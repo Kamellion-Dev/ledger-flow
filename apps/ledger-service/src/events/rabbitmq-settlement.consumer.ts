@@ -11,7 +11,10 @@ export class RabbitMqSettlementConsumer {
   private readonly connection: AmqpConnectionManager;
   private readonly channel: ChannelWrapper;
 
-  constructor(url: string, private readonly handler: SettlementResultHandler) {
+  constructor(
+    url: string,
+    private readonly handler: SettlementResultHandler,
+  ) {
     this.connection = amqp.connect([url]);
     this.channel = this.connection.createChannel({
       setup: async (channel: Channel) => {
@@ -31,7 +34,9 @@ export class RabbitMqSettlementConsumer {
 
   private async process(channel: Channel, message: ConsumeMessage): Promise<void> {
     try {
-      const event = JSON.parse(message.content.toString('utf8')) as LedgerEvent<SettlementCompletedData>;
+      const event = JSON.parse(
+        message.content.toString('utf8'),
+      ) as LedgerEvent<SettlementCompletedData>;
       await this.handler.handle(event, () => channel.ack(message));
     } catch (error) {
       console.error('Settlement result processing failed', error);

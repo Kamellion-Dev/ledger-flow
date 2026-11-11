@@ -16,8 +16,12 @@ import type { LedgerPort } from './ledger.port.js';
 export const LEDGER_GRPC_CLIENT = Symbol('LEDGER_GRPC_CLIENT');
 
 interface LedgerGrpcService {
-  createTransfer(request: CreateTransferCommand & { correlationId?: string }): Observable<TransferView>;
-  reverseTransfer(request: ReverseTransferCommand & { correlationId?: string }): Observable<TransferView>;
+  createTransfer(
+    request: CreateTransferCommand & { correlationId?: string },
+  ): Observable<TransferView>;
+  reverseTransfer(
+    request: ReverseTransferCommand & { correlationId?: string },
+  ): Observable<TransferView>;
   listTransfers(request: { page: number; pageSize: number }): Observable<Page<TransferView>>;
   listAccounts(request: Record<string, never>): Observable<{ items: AccountView[] }>;
   listSettlements(request: { page: number; pageSize: number }): Observable<Page<SettlementView>>;

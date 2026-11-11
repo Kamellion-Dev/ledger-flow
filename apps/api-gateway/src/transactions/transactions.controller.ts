@@ -39,7 +39,8 @@ export class TransactionsController {
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Req() request: AuthenticatedRequest,
   ) {
-    if (!idempotencyKey?.trim()) throw new BadRequestException('Idempotency-Key header is required');
+    if (!idempotencyKey?.trim())
+      throw new BadRequestException('Idempotency-Key header is required');
     return this.ledger.createTransfer(
       { ...dto, idempotencyKey: idempotencyKey.trim() },
       request.correlationId,
@@ -54,7 +55,8 @@ export class TransactionsController {
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Req() request: AuthenticatedRequest,
   ) {
-    if (!idempotencyKey?.trim()) throw new BadRequestException('Idempotency-Key header is required');
+    if (!idempotencyKey?.trim())
+      throw new BadRequestException('Idempotency-Key header is required');
     return this.ledger.reverseTransfer(
       { transferId, idempotencyKey: idempotencyKey.trim(), reason: dto.reason },
       request.correlationId,

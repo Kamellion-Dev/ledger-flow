@@ -9,7 +9,10 @@ export interface AuthPrincipal {
 
 @Injectable()
 export class AuthService {
-  async login(email: string, password: string): Promise<{ accessToken: string; user: AuthPrincipal }> {
+  async login(
+    email: string,
+    password: string,
+  ): Promise<{ accessToken: string; user: AuthPrincipal }> {
     if (email !== process.env.DEMO_EMAIL || password !== process.env.DEMO_PASSWORD) {
       throw new UnauthorizedException('Invalid demo credentials');
     }
@@ -41,7 +44,8 @@ export class AuthService {
 
   private secret(): Uint8Array {
     const value = process.env.JWT_SECRET;
-    if (!value || value.length < 32) throw new Error('JWT_SECRET must contain at least 32 characters');
+    if (!value || value.length < 32)
+      throw new Error('JWT_SECRET must contain at least 32 characters');
     return new TextEncoder().encode(value);
   }
 }

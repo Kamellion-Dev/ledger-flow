@@ -1,11 +1,7 @@
 import 'reflect-metadata';
 import { resolve } from 'node:path';
 import { NestFactory } from '@nestjs/core';
-import {
-  GrpcExceptionFilter,
-  type MicroserviceOptions,
-  Transport,
-} from '@nestjs/microservices';
+import { GrpcExceptionFilter, type MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { AppModule, PRISMA_CLIENT } from './app.module.js';
 import type { PrismaClient } from './generated/prisma/client.js';
 import { OutboxDispatcher } from './events/outbox-dispatcher.js';

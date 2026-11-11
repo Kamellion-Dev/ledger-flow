@@ -45,8 +45,10 @@ class RecordingPublisher implements SettlementEventPublisher {
 function createFixture() {
   const store = new MemoryReplayStore();
   const publisher = new RecordingPublisher();
-  const processor = new SettlementProcessor(store, publisher, () =>
-    new Date('2026-11-11T20:00:02.000Z'),
+  const processor = new SettlementProcessor(
+    store,
+    publisher,
+    () => new Date('2026-11-11T20:00:02.000Z'),
   );
   return { store, publisher, processor };
 }

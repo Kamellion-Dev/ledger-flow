@@ -7,7 +7,10 @@ export interface SettlementResultStore {
 export class SettlementResultHandler {
   constructor(private readonly store: SettlementResultStore) {}
 
-  async handle(event: LedgerEvent<SettlementCompletedData>, acknowledge: () => void): Promise<void> {
+  async handle(
+    event: LedgerEvent<SettlementCompletedData>,
+    acknowledge: () => void,
+  ): Promise<void> {
     await this.store.apply(event);
     acknowledge();
   }

@@ -122,7 +122,11 @@ describe('LedgerApplicationService', () => {
     const transfer = await service.createTransfer(command, 'correlation-001');
 
     const reversed = await service.reverseTransfer(
-      { transferId: transfer.id, idempotencyKey: 'reverse-demo-001', reason: 'Operator correction' },
+      {
+        transferId: transfer.id,
+        idempotencyKey: 'reverse-demo-001',
+        reason: 'Operator correction',
+      },
       'correlation-002',
     );
 

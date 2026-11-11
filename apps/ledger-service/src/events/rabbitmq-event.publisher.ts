@@ -19,13 +19,18 @@ export class RabbitMqEventPublisher implements EventPublisher {
   }
 
   async publish(record: OutboxRecord): Promise<void> {
-    await this.channel.publish(EXCHANGE, record.eventName, Buffer.from(JSON.stringify(record.event)), {
-      persistent: true,
-      contentType: 'application/json',
-      messageId: record.id,
-      correlationId: record.correlationId,
-      timestamp: Date.now(),
-    });
+    await this.channel.publish(
+      EXCHANGE,
+      record.eventName,
+      Buffer.from(JSON.stringify(record.event)),
+      {
+        persistent: true,
+        contentType: 'application/json',
+        messageId: record.id,
+        correlationId: record.correlationId,
+        timestamp: Date.now(),
+      },
+    );
   }
 
   async close(): Promise<void> {
