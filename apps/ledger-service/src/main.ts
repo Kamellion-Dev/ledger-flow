@@ -23,7 +23,7 @@ async function bootstrap(): Promise<void> {
     transport: Transport.GRPC,
     options: {
       package: 'ledgerflow.ledger.v1',
-      protoPath: resolve(process.cwd(), 'packages/contracts/proto/ledger.proto'),
+      protoPath: resolve(process.cwd(), '../../packages/contracts/proto/ledger.proto'),
       url: process.env.LEDGER_GRPC_URL ?? '0.0.0.0:50051',
       loader: { longs: Number, enums: String, defaults: true, oneofs: true },
     },
