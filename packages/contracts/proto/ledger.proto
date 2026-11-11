@@ -24,12 +24,14 @@ message CreateTransferRequest {
   int64 amount_minor = 4;
   string currency = 5;
   string reference = 6;
+  optional string correlation_id = 7;
 }
 
 message ReverseTransferRequest {
   string transfer_id = 1;
   string idempotency_key = 2;
   string reason = 3;
+  optional string correlation_id = 4;
 }
 
 message Transfer {
