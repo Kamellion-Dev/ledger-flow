@@ -9,6 +9,9 @@ import { DashboardController } from './dashboard/dashboard.controller.js';
 import { HealthController } from './health/health.controller.js';
 import { GrpcLedgerClient, LEDGER_GRPC_CLIENT } from './ledger/grpc-ledger.client.js';
 import { LEDGER_PORT } from './ledger/ledger.port.js';
+import { FundingsController } from './fundings/fundings.controller.js';
+import { FxController } from './fx/fx.controller.js';
+import { WalletsController } from './wallets/wallets.controller.js';
 
 @Module({
   imports: [
@@ -25,7 +28,15 @@ import { LEDGER_PORT } from './ledger/ledger.port.js';
       },
     ]),
   ],
-  controllers: [AuthController, TransactionsController, DashboardController, HealthController],
+  controllers: [
+    AuthController,
+    TransactionsController,
+    FundingsController,
+    FxController,
+    WalletsController,
+    DashboardController,
+    HealthController,
+  ],
   providers: [
     AuthService,
     AuthGuard,

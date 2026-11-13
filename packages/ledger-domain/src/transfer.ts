@@ -28,17 +28,11 @@ export function buildTransferJournal(
 ): TransferJournalDraft {
   const amountMinor = assertMinorUnits(command.amountMinor);
 
-  if (command.currency !== 'USD') {
-    throw new TransferValidationError('LedgerFlow MVP supports USD only');
+  if (command.sourceWalletId === command.destinationWalletId) {
+    throw new TransferValidationError('Transfers require two different customer accounts');
   }
-  if (command.sourceAccountId === command.destinationAccountId) {
-    throw new TransferValidationError('Source and destination accounts must be different');
-  }
-  if (accounts.source.id !== command.sourceAccountId) {
-    throw new TransferValidationError('Source account does not match the command');
-  }
-  if (accounts.destination.id !== command.destinationAccountId) {
-    throw new TransferValidationError('Destination account does not match the command');
+  if (accounts.source.id === accounts.destination.id) {
+    throw new TransferValidationError('Resolved source and destination accounts must be different');
   }
   if (
     accounts.source.currency !== command.currency ||

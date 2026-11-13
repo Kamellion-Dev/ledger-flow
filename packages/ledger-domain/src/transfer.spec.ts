@@ -4,8 +4,8 @@ import { buildTransferJournal, type TransferAccount } from './transfer.js';
 
 const command: CreateTransferCommand = {
   idempotencyKey: 'demo-transfer-001',
-  sourceAccountId: 'wallet-alice',
-  destinationAccountId: 'wallet-bob',
+  sourceWalletId: 'wallet-alice',
+  destinationWalletId: 'wallet-bob',
   amountMinor: 2500,
   currency: 'USD',
   reference: 'Dinner split',
@@ -44,7 +44,7 @@ describe('buildTransferJournal', () => {
   it('rejects a self-transfer', () => {
     expect(() =>
       buildTransferJournal(
-        { ...command, destinationAccountId: command.sourceAccountId },
+        { ...command, destinationWalletId: command.sourceWalletId },
         { source, destination: { ...destination, id: source.id } },
       ),
     ).toThrow('different');
@@ -56,13 +56,22 @@ describe('buildTransferJournal', () => {
     ).toThrow('Insufficient balance');
   });
 
-  it('rejects a non-USD command at runtime', () => {
-    expect(() =>
-      buildTransferJournal({ ...command, currency: 'EUR' } as unknown as CreateTransferCommand, {
-        source,
-        destination,
-      }),
-    ).toThrow('USD');
+  it('creates a balanced transfer for another supported currency', () => {
+    expect(
+      buildTransferJournal(
+        { ...command, currency: 'EUR' },
+        {
+          source: { ...source, id: 'alice-eur', currency: 'EUR' },
+          destination: { ...destination, id: 'bob-eur', currency: 'EUR' },
+        },
+      ),
+    ).toMatchObject({
+      currency: 'EUR',
+      postings: [
+        { accountId: 'alice-eur', side: 'DEBIT', amountMinor: 2500 },
+        { accountId: 'bob-eur', side: 'CREDIT', amountMinor: 2500 },
+      ],
+    });
   });
 
   it('rejects an account whose currency differs from the command', () => {

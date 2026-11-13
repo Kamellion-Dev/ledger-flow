@@ -1,8 +1,14 @@
 import { createHash } from 'node:crypto';
 import type {
   AccountView,
+  CreateFxQuoteCommand,
+  CreateFxConversionCommand,
   CreateTransferCommand,
+  CreateWalletBalanceCommand,
+  CreateWalletFundingCommand,
   DashboardSummary,
+  FxQuoteView,
+  FxConversionView,
   JournalView,
   LedgerEvent,
   Page,
@@ -10,11 +16,26 @@ import type {
   SettlementView,
   TransferPostedData,
   TransferView,
+  WalletFundingView,
+  WalletView,
 } from '@ledgerflow/contracts';
 import { LedgerEventName } from '@ledgerflow/contracts';
-import { buildTransferJournal } from '@ledgerflow/ledger-domain';
+import {
+  buildTransferJournal,
+  TransferValidationError,
+  buildWalletFundingJournal,
+  buildFxConversionJournal,
+  convertMinorUnits,
+  parseDecimalRatio,
+} from '@ledgerflow/ledger-domain';
+import {
+  ExchangeRateProviderError,
+  type ExchangeRateProvider,
+} from '../fx/exchange-rate.provider.js';
 import type {
   CreateTransferAggregate,
+  CreateFxConversionAggregate,
+  CreateWalletFundingAggregate,
   IdempotencyRecord,
   LedgerRepository,
   OutboxRecord,
@@ -42,6 +63,32 @@ export class TransferStateError extends Error {
   }
 }
 
+export class FxQuoteValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FxQuoteValidationError';
+  }
+}
+
+export class FxConversionStateError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FxConversionStateError';
+  }
+}
+
+export class WalletBalanceConflictError extends Error {
+  constructor(currency: string) {
+    super(`Wallet already has a ${currency} balance`);
+    this.name = 'WalletBalanceConflictError';
+  }
+}
+
+const unavailableExchangeRateProvider: ExchangeRateProvider = {
+  getRate: () =>
+    Promise.reject(new ExchangeRateProviderError('Exchange-rate provider is not configured')),
+};
+
 export interface LedgerRuntime {
   nextId(): string;
   now(): Date;
@@ -51,7 +98,264 @@ export class LedgerApplicationService {
   constructor(
     private readonly repository: LedgerRepository,
     private readonly runtime: LedgerRuntime,
+    private readonly exchangeRateProvider: ExchangeRateProvider = unavailableExchangeRateProvider,
   ) {}
+
+  async createWalletBalance(command: CreateWalletBalanceCommand): Promise<WalletView> {
+    return this.repository.transaction(async (unitOfWork) => {
+      const wallet = await unitOfWork.findWallet(command.walletId);
+      if (!wallet) throw new LedgerResourceNotFoundError('Wallet');
+      if (wallet.balances.some((balance) => balance.currency === command.currency)) {
+        throw new WalletBalanceConflictError(command.currency);
+      }
+      const account: AccountView = {
+        id: this.runtime.nextId(),
+        code: `2100-${wallet.id.toUpperCase()}-${command.currency}`,
+        name: `${wallet.ownerName} ${command.currency} Balance`,
+        type: 'LIABILITY',
+        currency: command.currency,
+        balanceMinor: 0,
+      };
+      await unitOfWork.createWalletBalance({
+        walletId: wallet.id,
+        currency: command.currency,
+        account,
+      });
+      return {
+        ...wallet,
+        balances: [...wallet.balances, { currency: command.currency, balanceMinor: 0 }],
+      };
+    });
+  }
+
+  async createFxQuote(command: CreateFxQuoteCommand): Promise<FxQuoteView> {
+    if (command.sourceCurrency === command.destinationCurrency) {
+      throw new FxQuoteValidationError('FX quote requires two different currencies');
+    }
+    const providerRate = await this.exchangeRateProvider.getRate(
+      command.sourceCurrency,
+      command.destinationCurrency,
+    );
+    if (
+      providerRate.base !== command.sourceCurrency ||
+      providerRate.quote !== command.destinationCurrency
+    ) {
+      throw new FxQuoteValidationError('Provider rate does not match the requested currency pair');
+    }
+    const ratio = parseDecimalRatio(providerRate.decimal);
+    const destinationAmountMinor = convertMinorUnits(
+      command.sourceAmountMinor,
+      ratio.numerator,
+      ratio.denominator,
+    );
+    if (destinationAmountMinor <= 0) {
+      throw new FxQuoteValidationError('Converted amount must be at least one minor unit');
+    }
+    const createdAt = this.runtime.now();
+    const quote: FxQuoteView = {
+      id: this.runtime.nextId(),
+      provider: providerRate.provider,
+      sourceCurrency: command.sourceCurrency,
+      destinationCurrency: command.destinationCurrency,
+      sourceAmountMinor: command.sourceAmountMinor,
+      destinationAmountMinor,
+      rateDecimal: ratio.decimal,
+      rateNumerator: ratio.numerator.toString(),
+      rateDenominator: ratio.denominator.toString(),
+      rateDate: providerRate.effectiveDate,
+      createdAt: createdAt.toISOString(),
+      expiresAt: new Date(createdAt.getTime() + 15 * 60 * 1_000).toISOString(),
+    };
+    await this.repository.createFxQuote(quote);
+    return quote;
+  }
+
+  async createFxConversion(
+    command: CreateFxConversionCommand,
+    _correlationId: string,
+  ): Promise<FxConversionView> {
+    const requestHash = hashRequest({
+      operation: 'CREATE_FX_CONVERSION',
+      quoteId: command.quoteId,
+      sourceAccountId: command.sourceAccountId,
+      destinationAccountId: command.destinationAccountId,
+      reference: command.reference.trim(),
+    });
+
+    return this.repository.transaction(async (unitOfWork) => {
+      await unitOfWork.lockIdempotencyKey(command.idempotencyKey);
+      const replay = await unitOfWork.findIdempotency(command.idempotencyKey);
+      if (replay) {
+        if (replay.requestHash !== requestHash || replay.operation !== 'CREATE_FX_CONVERSION') {
+          throw new IdempotencyConflictError();
+        }
+        const original = await unitOfWork.findFxConversion(replay.resourceId);
+        if (!original) throw new LedgerResourceNotFoundError('Idempotent FX conversion result');
+        return original;
+      }
+
+      const quote = await unitOfWork.findFxQuote(command.quoteId);
+      if (!quote) throw new LedgerResourceNotFoundError('FX quote');
+      const createdAt = this.runtime.now();
+      if (createdAt.getTime() >= new Date(quote.expiresAt).getTime()) {
+        throw new FxQuoteValidationError('FX quote has expired');
+      }
+      const [sourceWallet, destinationWallet, sourceCash, destinationCash] = await Promise.all([
+        unitOfWork.findAccount(command.sourceAccountId),
+        unitOfWork.findAccount(command.destinationAccountId),
+        unitOfWork.findPlatformCashAccount(quote.sourceCurrency),
+        unitOfWork.findPlatformCashAccount(quote.destinationCurrency),
+      ]);
+      if (!sourceWallet || !destinationWallet || !sourceCash || !destinationCash) {
+        throw new LedgerResourceNotFoundError('FX conversion account');
+      }
+      const draft = buildFxConversionJournal(command, quote, {
+        sourceWallet,
+        destinationWallet,
+        sourceCash,
+        destinationCash,
+      });
+      const conversionId = this.runtime.nextId();
+      const journalId = this.runtime.nextId();
+      const timestamp = createdAt.toISOString();
+      const conversion: FxConversionView = {
+        id: conversionId,
+        idempotencyKey: command.idempotencyKey,
+        quoteId: quote.id,
+        sourceAccountId: sourceWallet.id,
+        destinationAccountId: destinationWallet.id,
+        sourceAmountMinor: quote.sourceAmountMinor,
+        destinationAmountMinor: quote.destinationAmountMinor,
+        sourceCurrency: quote.sourceCurrency,
+        destinationCurrency: quote.destinationCurrency,
+        rateDecimal: quote.rateDecimal,
+        journalId,
+        reference: draft.reference,
+        createdAt: timestamp,
+      };
+      const accounts = [sourceWallet, sourceCash, destinationCash, destinationWallet];
+      const journal: JournalView = {
+        id: journalId,
+        fxConversionId: conversionId,
+        currencies: [...draft.currencies],
+        reference: draft.reference,
+        createdAt: timestamp,
+        postings: draft.postings.map((posting) => {
+          const account = accounts.find((candidate) => candidate.id === posting.accountId);
+          if (!account) throw new LedgerResourceNotFoundError('FX posting account');
+          return {
+            id: this.runtime.nextId(),
+            accountId: account.id,
+            accountCode: account.code,
+            accountName: account.name,
+            side: posting.side,
+            amountMinor: posting.amountMinor,
+            currency: posting.currency,
+          };
+        }),
+      };
+      const idempotency: IdempotencyRecord = {
+        key: command.idempotencyKey,
+        operation: 'CREATE_FX_CONVERSION',
+        requestHash,
+        resourceId: conversionId,
+        createdAt: timestamp,
+      };
+      const aggregate: CreateFxConversionAggregate = {
+        conversion,
+        journal,
+        idempotency,
+        sourceCashAccountId: sourceCash.id,
+        destinationCashAccountId: destinationCash.id,
+      };
+      await unitOfWork.createFxConversion(aggregate);
+      return conversion;
+    });
+  }
+
+  async createWalletFunding(
+    command: CreateWalletFundingCommand,
+    _correlationId: string,
+  ): Promise<WalletFundingView> {
+    const requestHash = hashRequest({
+      operation: 'CREATE_WALLET_FUNDING',
+      walletId: command.walletId,
+      amountMinor: command.amountMinor,
+      currency: command.currency,
+      reference: command.reference.trim(),
+    });
+
+    return this.repository.transaction(async (unitOfWork) => {
+      await unitOfWork.lockIdempotencyKey(command.idempotencyKey);
+      const replay = await unitOfWork.findIdempotency(command.idempotencyKey);
+      if (replay) {
+        if (replay.requestHash !== requestHash || replay.operation !== 'CREATE_WALLET_FUNDING') {
+          throw new IdempotencyConflictError();
+        }
+        const original = await unitOfWork.findWalletFunding(replay.resourceId);
+        if (!original) throw new LedgerResourceNotFoundError('Idempotent wallet funding result');
+        return original;
+      }
+
+      const fundingAccount = await unitOfWork.findPlatformCashAccount(command.currency);
+      if (!fundingAccount) {
+        throw new LedgerResourceNotFoundError(`Platform cash ${command.currency} account`);
+      }
+      const walletAccount = await unitOfWork.findWalletBalanceAccount(
+        command.walletId,
+        command.currency,
+      );
+      if (!walletAccount) {
+        throw new LedgerResourceNotFoundError(`Wallet ${command.currency} balance`);
+      }
+      const draft = buildWalletFundingJournal(command, { fundingAccount, walletAccount });
+      const createdAt = this.runtime.now().toISOString();
+      const fundingId = this.runtime.nextId();
+      const journalId = this.runtime.nextId();
+      const funding: WalletFundingView = {
+        id: fundingId,
+        idempotencyKey: command.idempotencyKey,
+        fundingAccountId: fundingAccount.id,
+        walletAccountId: walletAccount.id,
+        walletName: walletAccount.name,
+        amountMinor: command.amountMinor,
+        currency: command.currency,
+        reference: draft.reference,
+        journalId,
+        createdAt,
+      };
+      const journal: JournalView = {
+        id: journalId,
+        fundingId,
+        currency: draft.currency,
+        currencies: [draft.currency],
+        reference: draft.reference,
+        createdAt,
+        postings: draft.postings.map((posting) => {
+          const account = posting.accountId === fundingAccount.id ? fundingAccount : walletAccount;
+          return {
+            id: this.runtime.nextId(),
+            accountId: account.id,
+            accountCode: account.code,
+            accountName: account.name,
+            side: posting.side,
+            amountMinor: posting.amountMinor,
+            currency: draft.currency,
+          };
+        }),
+      };
+      const idempotency: IdempotencyRecord = {
+        key: command.idempotencyKey,
+        operation: 'CREATE_WALLET_FUNDING',
+        requestHash,
+        resourceId: fundingId,
+        createdAt,
+      };
+      const aggregate: CreateWalletFundingAggregate = { funding, journal, idempotency };
+      await unitOfWork.createWalletFunding(aggregate);
+      return funding;
+    });
+  }
 
   async createTransfer(
     command: CreateTransferCommand,
@@ -59,14 +363,15 @@ export class LedgerApplicationService {
   ): Promise<TransferView> {
     const requestHash = hashRequest({
       operation: 'CREATE_TRANSFER',
-      sourceAccountId: command.sourceAccountId,
-      destinationAccountId: command.destinationAccountId,
+      sourceWalletId: command.sourceWalletId,
+      destinationWalletId: command.destinationWalletId,
       amountMinor: command.amountMinor,
       currency: command.currency,
       reference: command.reference.trim(),
     });
 
     return this.repository.transaction(async (unitOfWork) => {
+      await unitOfWork.lockIdempotencyKey(command.idempotencyKey);
       const replay = await unitOfWork.findIdempotency(command.idempotencyKey);
       if (replay) {
         if (replay.requestHash !== requestHash || replay.operation !== 'CREATE_TRANSFER') {
@@ -79,10 +384,22 @@ export class LedgerApplicationService {
         return original;
       }
 
-      const source = await unitOfWork.findAccount(command.sourceAccountId);
-      const destination = await unitOfWork.findAccount(command.destinationAccountId);
-      if (!source || !destination) {
-        throw new LedgerResourceNotFoundError('Transfer account');
+      if (command.sourceWalletId === command.destinationWalletId) {
+        throw new TransferValidationError('Transfers require two different customer accounts');
+      }
+      const source = await unitOfWork.findWalletBalanceAccount(
+        command.sourceWalletId,
+        command.currency,
+      );
+      if (!source) {
+        throw new LedgerResourceNotFoundError(`Source wallet ${command.currency} balance`);
+      }
+      const destination = await unitOfWork.findWalletBalanceAccount(
+        command.destinationWalletId,
+        command.currency,
+      );
+      if (!destination) {
+        throw new LedgerResourceNotFoundError(`Destination wallet ${command.currency} balance`);
       }
 
       const draft = buildTransferJournal(command, { source, destination });
@@ -105,6 +422,7 @@ export class LedgerApplicationService {
         id: journalId,
         transferId,
         currency: draft.currency,
+        currencies: [draft.currency],
         reference: draft.reference,
         createdAt,
         postings: draft.postings.map((posting) => {
@@ -116,6 +434,7 @@ export class LedgerApplicationService {
             accountName: account.name,
             side: posting.side,
             amountMinor: posting.amountMinor,
+            currency: draft.currency,
           };
         }),
       };
@@ -171,6 +490,7 @@ export class LedgerApplicationService {
     });
 
     return this.repository.transaction(async (unitOfWork) => {
+      await unitOfWork.lockIdempotencyKey(command.idempotencyKey);
       const replay = await unitOfWork.findIdempotency(command.idempotencyKey);
       if (replay) {
         if (replay.requestHash !== requestHash || replay.operation !== 'REVERSE_TRANSFER') {
@@ -206,6 +526,7 @@ export class LedgerApplicationService {
         id: this.runtime.nextId(),
         transferId: transfer.id,
         currency: transfer.currency,
+        currencies: [transfer.currency],
         reference: `Reversal: ${command.reason.trim()}`,
         reversalOfJournalId: originalJournal.id,
         createdAt: reversedAt,
@@ -237,8 +558,22 @@ export class LedgerApplicationService {
     return this.repository.listAccounts();
   }
 
+  listWallets(): Promise<WalletView[]> {
+    return this.repository.listWallets();
+  }
+
+  async listFxConversions(page: number, pageSize: number): Promise<Page<FxConversionView>> {
+    const result = await this.repository.listFxConversions(page, pageSize);
+    return { ...result, page, pageSize };
+  }
+
   async listTransfers(page: number, pageSize: number): Promise<Page<TransferView>> {
     const result = await this.repository.listTransfers(page, pageSize);
+    return { ...result, page, pageSize };
+  }
+
+  async listWalletFundings(page: number, pageSize: number): Promise<Page<WalletFundingView>> {
+    const result = await this.repository.listWalletFundings(page, pageSize);
     return { ...result, page, pageSize };
   }
 

@@ -3,19 +3,44 @@ import type { ClientGrpc } from '@nestjs/microservices';
 import { firstValueFrom, type Observable } from 'rxjs';
 import type {
   AccountView,
+  CreateFxConversionCommand,
+  CreateFxQuoteCommand,
+  CreateWalletBalanceCommand,
   CreateTransferCommand,
+  CreateWalletFundingCommand,
   DashboardSummary,
+  FxConversionView,
+  FxQuoteView,
   JournalView,
   Page,
   ReverseTransferCommand,
   SettlementView,
   TransferView,
+  WalletFundingView,
+  WalletView,
 } from '@ledgerflow/contracts';
 import type { LedgerPort } from './ledger.port.js';
 
 export const LEDGER_GRPC_CLIENT = Symbol('LEDGER_GRPC_CLIENT');
 
 interface LedgerGrpcService {
+  listWallets(request: Record<string, never>): Observable<{ items: WalletView[] }>;
+  createWalletBalance(request: CreateWalletBalanceCommand): Observable<WalletView>;
+  createFxQuote(request: CreateFxQuoteCommand): Observable<FxQuoteView>;
+  createFxConversion(
+    request: CreateFxConversionCommand & { correlationId?: string },
+  ): Observable<FxConversionView>;
+  listFxConversions(request: {
+    page: number;
+    pageSize: number;
+  }): Observable<Page<FxConversionView>>;
+  createWalletFunding(
+    request: CreateWalletFundingCommand & { correlationId?: string },
+  ): Observable<WalletFundingView>;
+  listWalletFundings(request: {
+    page: number;
+    pageSize: number;
+  }): Observable<Page<WalletFundingView>>;
   createTransfer(
     request: CreateTransferCommand & { correlationId?: string },
   ): Observable<TransferView>;
@@ -38,6 +63,50 @@ export class GrpcLedgerClient implements LedgerPort, OnModuleInit {
 
   onModuleInit(): void {
     this.service = this.client.getService<LedgerGrpcService>('LedgerService');
+  }
+
+  async listWallets(): Promise<WalletView[]> {
+    return (await firstValueFrom(this.getService().listWallets({}))).items;
+  }
+
+  createWalletBalance(command: CreateWalletBalanceCommand): Promise<WalletView> {
+    return firstValueFrom(this.getService().createWalletBalance(command));
+  }
+
+  createFxQuote(command: CreateFxQuoteCommand): Promise<FxQuoteView> {
+    return firstValueFrom(this.getService().createFxQuote(command));
+  }
+
+  createFxConversion(
+    command: CreateFxConversionCommand,
+    correlationId?: string,
+  ): Promise<FxConversionView> {
+    return firstValueFrom(
+      this.getService().createFxConversion({
+        ...command,
+        ...(correlationId ? { correlationId } : {}),
+      }),
+    );
+  }
+
+  listFxConversions(page: number, pageSize: number): Promise<Page<FxConversionView>> {
+    return firstValueFrom(this.getService().listFxConversions({ page, pageSize }));
+  }
+
+  createWalletFunding(
+    command: CreateWalletFundingCommand,
+    correlationId?: string,
+  ): Promise<WalletFundingView> {
+    return firstValueFrom(
+      this.getService().createWalletFunding({
+        ...command,
+        ...(correlationId ? { correlationId } : {}),
+      }),
+    );
+  }
+
+  listWalletFundings(page: number, pageSize: number): Promise<Page<WalletFundingView>> {
+    return firstValueFrom(this.getService().listWalletFundings({ page, pageSize }));
   }
 
   createTransfer(command: CreateTransferCommand, correlationId?: string): Promise<TransferView> {

@@ -1,20 +1,23 @@
-import { Equals, IsInt, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import { IsIn, IsInt, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import type { Currency } from '@ledgerflow/contracts';
+
+const currencies: Currency[] = ['USD', 'EUR', 'GBP', 'EGP'];
 
 export class CreateTransferDto {
   @IsString()
   @MinLength(1)
-  sourceAccountId!: string;
+  sourceWalletId!: string;
 
   @IsString()
   @MinLength(1)
-  destinationAccountId!: string;
+  destinationWalletId!: string;
 
   @IsInt()
   @Min(1)
   amountMinor!: number;
 
-  @Equals('USD')
-  currency!: 'USD';
+  @IsIn(currencies)
+  currency!: Currency;
 
   @IsString()
   @MinLength(1)

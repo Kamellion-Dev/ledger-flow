@@ -2,12 +2,16 @@ import type {
   AccountType,
   AccountView,
   Currency,
+  FxQuoteView,
+  FxConversionView,
   JournalView,
   PostingSide,
   SettlementStatus,
   SettlementView,
   TransferStatus,
   TransferView,
+  WalletFundingView,
+  WalletView,
 } from '@ledgerflow/contracts';
 
 export interface PrismaAccountRow {
@@ -17,6 +21,15 @@ export interface PrismaAccountRow {
   type: string;
   currency: string;
   balanceMinor: bigint;
+}
+
+export interface PrismaWalletRow {
+  id: string;
+  ownerName: string;
+  balances: Array<{
+    currency: string;
+    account: { balanceMinor: bigint };
+  }>;
 }
 
 export interface PrismaTransferRow {
@@ -34,10 +47,43 @@ export interface PrismaTransferRow {
   reversedAt: Date | null;
 }
 
+export interface PrismaFxQuoteRow {
+  id: string;
+  provider: string;
+  sourceCurrency: string;
+  destinationCurrency: string;
+  sourceAmountMinor: bigint;
+  destinationAmountMinor: bigint;
+  rateDecimal: string;
+  rateNumerator: bigint;
+  rateDenominator: bigint;
+  rateDate: Date;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
+export interface PrismaFxConversionRow {
+  id: string;
+  idempotencyKey: string;
+  quoteId: string;
+  sourceAccountId: string;
+  destinationAccountId: string;
+  sourceAmountMinor: bigint;
+  destinationAmountMinor: bigint;
+  sourceCurrency: string;
+  destinationCurrency: string;
+  rateDecimal: string;
+  journalId: string;
+  reference: string;
+  createdAt: Date;
+}
+
 export interface PrismaJournalRow {
   id: string;
-  transferId: string;
-  currency: string;
+  transferId: string | null;
+  fundingId: string | null;
+  fxConversionId: string | null;
+  currency: string | null;
   reference: string;
   reversalOfJournalId: string | null;
   createdAt: Date;
@@ -46,8 +92,22 @@ export interface PrismaJournalRow {
     accountId: string;
     side: string;
     amountMinor: bigint;
+    currency: string;
     account: { code: string; name: string };
   }>;
+}
+
+export interface PrismaWalletFundingRow {
+  id: string;
+  idempotencyKey: string;
+  fundingAccountId: string;
+  walletAccountId: string;
+  amountMinor: bigint;
+  currency: string;
+  reference: string;
+  journalId: string;
+  createdAt: Date;
+  walletAccount: { name: string };
 }
 
 export interface PrismaSettlementRow {
@@ -79,6 +139,17 @@ export function mapAccount(row: PrismaAccountRow): AccountView {
   };
 }
 
+export function mapWallet(row: PrismaWalletRow): WalletView {
+  return {
+    id: row.id,
+    ownerName: row.ownerName,
+    balances: row.balances.map((balance) => ({
+      currency: assertCurrency(balance.currency),
+      balanceMinor: toSafeNumber(balance.account.balanceMinor),
+    })),
+  };
+}
+
 export function mapTransfer(row: PrismaTransferRow): TransferView {
   const transfer: TransferView = {
     id: row.id,
@@ -97,11 +168,45 @@ export function mapTransfer(row: PrismaTransferRow): TransferView {
   return transfer;
 }
 
+export function mapFxQuote(row: PrismaFxQuoteRow): FxQuoteView {
+  return {
+    id: row.id,
+    provider: row.provider,
+    sourceCurrency: assertCurrency(row.sourceCurrency),
+    destinationCurrency: assertCurrency(row.destinationCurrency),
+    sourceAmountMinor: toSafeNumber(row.sourceAmountMinor),
+    destinationAmountMinor: toSafeNumber(row.destinationAmountMinor),
+    rateDecimal: row.rateDecimal,
+    rateNumerator: row.rateNumerator.toString(),
+    rateDenominator: row.rateDenominator.toString(),
+    rateDate: row.rateDate.toISOString().slice(0, 10),
+    createdAt: row.createdAt.toISOString(),
+    expiresAt: row.expiresAt.toISOString(),
+  };
+}
+
+export function mapFxConversion(row: PrismaFxConversionRow): FxConversionView {
+  return {
+    id: row.id,
+    idempotencyKey: row.idempotencyKey,
+    quoteId: row.quoteId,
+    sourceAccountId: row.sourceAccountId,
+    destinationAccountId: row.destinationAccountId,
+    sourceAmountMinor: toSafeNumber(row.sourceAmountMinor),
+    destinationAmountMinor: toSafeNumber(row.destinationAmountMinor),
+    sourceCurrency: assertCurrency(row.sourceCurrency),
+    destinationCurrency: assertCurrency(row.destinationCurrency),
+    rateDecimal: row.rateDecimal,
+    journalId: row.journalId,
+    reference: row.reference,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
 export function mapJournal(row: PrismaJournalRow): JournalView {
   const journal: JournalView = {
     id: row.id,
-    transferId: row.transferId,
-    currency: assertCurrency(row.currency),
+    currencies: [...new Set(row.postings.map((posting) => assertCurrency(posting.currency)))],
     reference: row.reference,
     createdAt: row.createdAt.toISOString(),
     postings: row.postings.map((posting) => ({
@@ -111,10 +216,30 @@ export function mapJournal(row: PrismaJournalRow): JournalView {
       accountName: posting.account.name,
       side: assertPostingSide(posting.side),
       amountMinor: toSafeNumber(posting.amountMinor),
+      currency: assertCurrency(posting.currency),
     })),
   };
+  if (row.currency) journal.currency = assertCurrency(row.currency);
+  if (row.transferId) journal.transferId = row.transferId;
+  if (row.fundingId) journal.fundingId = row.fundingId;
+  if (row.fxConversionId) journal.fxConversionId = row.fxConversionId;
   if (row.reversalOfJournalId) journal.reversalOfJournalId = row.reversalOfJournalId;
   return journal;
+}
+
+export function mapWalletFunding(row: PrismaWalletFundingRow): WalletFundingView {
+  return {
+    id: row.id,
+    idempotencyKey: row.idempotencyKey,
+    fundingAccountId: row.fundingAccountId,
+    walletAccountId: row.walletAccountId,
+    walletName: row.walletAccount.name,
+    amountMinor: toSafeNumber(row.amountMinor),
+    currency: assertCurrency(row.currency),
+    reference: row.reference,
+    journalId: row.journalId,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 export function mapSettlement(row: PrismaSettlementRow): SettlementView {
@@ -131,7 +256,9 @@ export function mapSettlement(row: PrismaSettlementRow): SettlementView {
 }
 
 function assertCurrency(value: string): Currency {
-  if (value !== 'USD') throw new Error(`Unsupported currency in database: ${value}`);
+  if (value !== 'USD' && value !== 'EUR' && value !== 'GBP' && value !== 'EGP') {
+    throw new Error(`Unsupported currency in database: ${value}`);
+  }
   return value;
 }
 

@@ -3,8 +3,15 @@ syntax = "proto3";
 package ledgerflow.ledger.v1;
 
 service LedgerService {
+  rpc CreateFxQuote (CreateFxQuoteRequest) returns (FxQuote);
+  rpc CreateFxConversion (CreateFxConversionRequest) returns (FxConversion);
+  rpc ListFxConversions (PageRequest) returns (FxConversionPage);
   rpc CreateTransfer (CreateTransferRequest) returns (Transfer);
   rpc ReverseTransfer (ReverseTransferRequest) returns (Transfer);
+  rpc ListWallets (Empty) returns (WalletList);
+  rpc CreateWalletBalance (CreateWalletBalanceRequest) returns (Wallet);
+  rpc CreateWalletFunding (CreateWalletFundingRequest) returns (WalletFunding);
+  rpc ListWalletFundings (PageRequest) returns (WalletFundingPage);
   rpc ListTransfers (PageRequest) returns (TransferPage);
   rpc ListAccounts (Empty) returns (AccountList);
   rpc ListSettlements (PageRequest) returns (SettlementPage);
@@ -19,8 +26,8 @@ message PageRequest { int32 page = 1; int32 page_size = 2; }
 
 message CreateTransferRequest {
   string idempotency_key = 1;
-  string source_account_id = 2;
-  string destination_account_id = 3;
+  string source_wallet_id = 2;
+  string destination_wallet_id = 3;
   int64 amount_minor = 4;
   string currency = 5;
   string reference = 6;
@@ -32,6 +39,40 @@ message ReverseTransferRequest {
   string idempotency_key = 2;
   string reason = 3;
   optional string correlation_id = 4;
+}
+
+message CreateWalletFundingRequest {
+  string idempotency_key = 1;
+  string wallet_id = 2;
+  int64 amount_minor = 3;
+  string currency = 4;
+  string reference = 5;
+  optional string correlation_id = 6;
+}
+
+message CreateWalletBalanceRequest { string wallet_id = 1; string currency = 2; }
+
+message WalletBalance { string currency = 1; int64 balance_minor = 2; }
+message Wallet {
+  string id = 1;
+  string owner_name = 2;
+  repeated WalletBalance balances = 3;
+}
+message WalletList { repeated Wallet items = 1; }
+
+message CreateFxQuoteRequest {
+  string source_currency = 1;
+  string destination_currency = 2;
+  int64 source_amount_minor = 3;
+}
+
+message CreateFxConversionRequest {
+  string idempotency_key = 1;
+  string quote_id = 2;
+  string source_account_id = 3;
+  string destination_account_id = 4;
+  string reference = 5;
+  optional string correlation_id = 6;
 }
 
 message Transfer {
@@ -65,16 +106,64 @@ message Posting {
   string account_name = 4;
   string side = 5;
   int64 amount_minor = 6;
+  string currency = 7;
 }
 
 message Journal {
   string id = 1;
-  string transfer_id = 2;
+  optional string transfer_id = 2;
   string currency = 3;
   string reference = 4;
   optional string reversal_of_journal_id = 5;
   string created_at = 6;
   repeated Posting postings = 7;
+  optional string funding_id = 8;
+  repeated string currencies = 9;
+  optional string fx_conversion_id = 10;
+}
+
+message FxQuote {
+  string id = 1;
+  string provider = 2;
+  string source_currency = 3;
+  string destination_currency = 4;
+  int64 source_amount_minor = 5;
+  int64 destination_amount_minor = 6;
+  string rate_decimal = 7;
+  string rate_numerator = 8;
+  string rate_denominator = 9;
+  string rate_date = 10;
+  string created_at = 11;
+  string expires_at = 12;
+}
+
+message FxConversion {
+  string id = 1;
+  string idempotency_key = 2;
+  string quote_id = 3;
+  string source_account_id = 4;
+  string destination_account_id = 5;
+  int64 source_amount_minor = 6;
+  int64 destination_amount_minor = 7;
+  string source_currency = 8;
+  string destination_currency = 9;
+  string rate_decimal = 10;
+  string journal_id = 11;
+  string reference = 12;
+  string created_at = 13;
+}
+
+message WalletFunding {
+  string id = 1;
+  string idempotency_key = 2;
+  string funding_account_id = 3;
+  string wallet_account_id = 4;
+  string wallet_name = 5;
+  int64 amount_minor = 6;
+  string currency = 7;
+  string reference = 8;
+  string journal_id = 9;
+  string created_at = 10;
 }
 
 message Settlement {
@@ -90,6 +179,8 @@ message Settlement {
 message TransferPage { repeated Transfer items = 1; int32 total = 2; int32 page = 3; int32 page_size = 4; }
 message AccountList { repeated Account items = 1; }
 message SettlementPage { repeated Settlement items = 1; int32 total = 2; int32 page = 3; int32 page_size = 4; }
+message WalletFundingPage { repeated WalletFunding items = 1; int32 total = 2; int32 page = 3; int32 page_size = 4; }
+message FxConversionPage { repeated FxConversion items = 1; int32 total = 2; int32 page = 3; int32 page_size = 4; }
 
 message VolumePoint { string hour = 1; int64 amount_minor = 2; }
 message DashboardSummary {

@@ -38,6 +38,8 @@ enum OutboxStatus {
 enum IdempotencyOperation {
   CREATE_TRANSFER
   REVERSE_TRANSFER
+  CREATE_WALLET_FUNDING
+  CREATE_FX_CONVERSION
 }
 
 model Account {
@@ -52,6 +54,90 @@ model Account {
   postings     Posting[]
   sentTransfers     Transfer[] @relation("SourceAccount")
   receivedTransfers Transfer[] @relation("DestinationAccount")
+  cashFundings      WalletFunding[] @relation("FundingAccount")
+  walletFundings    WalletFunding[] @relation("WalletAccount")
+  sourceFxConversions      FxConversion[] @relation("FxSourceWallet")
+  destinationFxConversions FxConversion[] @relation("FxDestinationWallet")
+  walletBalance            WalletBalance?
+}
+
+model Wallet {
+  id        String          @id
+  ownerName String
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  balances  WalletBalance[]
+}
+
+model WalletBalance {
+  walletId  String
+  currency  String  @db.VarChar(3)
+  accountId String  @unique
+  wallet    Wallet  @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@id([walletId, currency])
+  @@index([currency])
+}
+
+model FxQuote {
+  id                     String   @id @default(uuid())
+  provider               String
+  sourceCurrency         String   @db.VarChar(3)
+  destinationCurrency    String   @db.VarChar(3)
+  sourceAmountMinor      BigInt
+  destinationAmountMinor BigInt
+  rateDecimal            String
+  rateNumerator          BigInt
+  rateDenominator        BigInt
+  rateDate               DateTime @db.Date
+  createdAt              DateTime @default(now())
+  expiresAt              DateTime
+  conversions            FxConversion[]
+
+  @@index([sourceCurrency, destinationCurrency, createdAt])
+  @@index([expiresAt])
+}
+
+model FxConversion {
+  id                     String   @id @default(uuid())
+  idempotencyKey         String   @unique
+  quoteId                String
+  sourceAccountId        String
+  destinationAccountId   String
+  sourceAmountMinor      BigInt
+  destinationAmountMinor BigInt
+  sourceCurrency         String   @db.VarChar(3)
+  destinationCurrency    String   @db.VarChar(3)
+  rateDecimal            String
+  journalId              String   @unique
+  reference              String
+  createdAt              DateTime @default(now())
+  quote                   FxQuote  @relation(fields: [quoteId], references: [id])
+  sourceAccount          Account  @relation("FxSourceWallet", fields: [sourceAccountId], references: [id])
+  destinationAccount     Account  @relation("FxDestinationWallet", fields: [destinationAccountId], references: [id])
+  journals               Journal[]
+
+  @@index([createdAt])
+  @@index([quoteId])
+}
+
+model WalletFunding {
+  id               String   @id @default(uuid())
+  idempotencyKey   String   @unique
+  fundingAccountId String
+  walletAccountId  String
+  amountMinor      BigInt
+  currency         String   @db.VarChar(3)
+  reference        String
+  journalId        String   @unique
+  createdAt        DateTime @default(now())
+  fundingAccount   Account  @relation("FundingAccount", fields: [fundingAccountId], references: [id])
+  walletAccount    Account  @relation("WalletAccount", fields: [walletAccountId], references: [id])
+  journals         Journal[]
+
+  @@index([createdAt])
+  @@index([walletAccountId, createdAt])
 }
 
 model Transfer {
@@ -78,17 +164,23 @@ model Transfer {
 
 model Journal {
   id                  String    @id @default(uuid())
-  transferId          String
-  currency            String    @db.VarChar(3)
+  transferId          String?
+  fundingId           String?
+  fxConversionId      String?
+  currency            String?   @db.VarChar(3)
   reference           String
   reversalOfJournalId String?   @unique
   createdAt           DateTime  @default(now())
-  transfer            Transfer  @relation(fields: [transferId], references: [id])
+  transfer            Transfer? @relation(fields: [transferId], references: [id])
+  funding             WalletFunding? @relation(fields: [fundingId], references: [id])
+  fxConversion        FxConversion? @relation(fields: [fxConversionId], references: [id])
   postings            Posting[]
   reversalOf          Journal?  @relation("JournalReversal", fields: [reversalOfJournalId], references: [id])
   reversal            Journal?  @relation("JournalReversal")
 
   @@index([transferId, createdAt])
+  @@index([fundingId, createdAt])
+  @@index([fxConversionId, createdAt])
 }
 
 model Posting {
@@ -97,6 +189,7 @@ model Posting {
   accountId   String
   side        PostingSide
   amountMinor BigInt
+  currency    String      @db.VarChar(3)
   createdAt   DateTime    @default(now())
   journal     Journal     @relation(fields: [journalId], references: [id])
   account     Account     @relation(fields: [accountId], references: [id])

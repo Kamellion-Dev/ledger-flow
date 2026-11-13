@@ -31,6 +31,30 @@ const accounts = [
     currency: 'USD',
     balanceMinor: 5_000n,
   },
+  ...(['EUR', 'GBP', 'EGP'] as const).map((currency) => ({
+    id: `platform-cash-${currency.toLowerCase()}`,
+    code: `1000-CASH-${currency}`,
+    name: `Platform ${currency} Cash`,
+    type: 'ASSET' as const,
+    currency,
+    balanceMinor: 0n,
+  })),
+  {
+    id: 'wallet-alice-eur',
+    code: '2100-ALICE-EUR',
+    name: 'Alice EUR Balance',
+    type: 'LIABILITY' as const,
+    currency: 'EUR',
+    balanceMinor: 0n,
+  },
+  {
+    id: 'wallet-bob-gbp',
+    code: '2100-BOB-GBP',
+    name: 'Bob GBP Balance',
+    type: 'LIABILITY' as const,
+    currency: 'GBP',
+    balanceMinor: 0n,
+  },
 ];
 
 for (const account of accounts) {
@@ -43,6 +67,32 @@ for (const account of accounts) {
       type: account.type,
       currency: account.currency,
     },
+  });
+}
+
+for (const wallet of [
+  { id: 'wallet-alice', ownerName: 'Alice' },
+  { id: 'wallet-bob', ownerName: 'Bob' },
+]) {
+  await prisma.wallet.upsert({
+    where: { id: wallet.id },
+    create: wallet,
+    update: { ownerName: wallet.ownerName },
+  });
+}
+
+for (const balance of [
+  { walletId: 'wallet-alice', currency: 'USD', accountId: 'wallet-alice' },
+  { walletId: 'wallet-alice', currency: 'EUR', accountId: 'wallet-alice-eur' },
+  { walletId: 'wallet-bob', currency: 'USD', accountId: 'wallet-bob' },
+  { walletId: 'wallet-bob', currency: 'GBP', accountId: 'wallet-bob-gbp' },
+]) {
+  await prisma.walletBalance.upsert({
+    where: {
+      walletId_currency: { walletId: balance.walletId, currency: balance.currency },
+    },
+    create: balance,
+    update: { accountId: balance.accountId },
   });
 }
 
