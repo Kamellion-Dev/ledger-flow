@@ -1,19 +1,17 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "ES2023",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": false,
     "noEmit": true,
-    "incremental": true,
     "module": "esnext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "plugins": [{ "name": "next" }],
     "declaration": false,
     "declarationMap": false,
     "isolatedModules": true
   },
-  "include": ["next-env.d.ts", ".next/types/**/*.ts", "**/*.ts", "**/*.tsx"],
+  "include": ["**/*.ts", "**/*.tsx", "vite.config.ts"],
   "exclude": ["node_modules"]
 }

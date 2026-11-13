@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ledgerflow
       POSTGRES_PASSWORD: ledgerflow
     ports:
-      - '5432:5432'
+      - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -58,7 +58,8 @@ services:
       JWT_SECRET: local-development-only-change-me-now
       DEMO_EMAIL: operator@ledgerflow.local
       DEMO_PASSWORD: ledgerflow-demo
-      GATEWAY_PORT: 3001
+      GATEWAY_PORT: 3000
+      FRANKFURTER_BASE_URL: https://api.frankfurter.dev/v2
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,29 +99,18 @@ services:
       ledger-service:
         condition: service_healthy
     ports:
-      - '3001:3001'
+      - '3000:3000'
     healthcheck:
       test:
         [
           'CMD',
           'node',
           '-e',
-          "fetch('http://127.0.0.1:3001/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 5s
       timeout: 3s
       retries: 20
-
-  web:
-    image: ledgerflow-app:local
-    command: ['npm', 'run', 'start', '-w', '@ledgerflow/web']
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001/api
-    depends_on:
-      api-gateway:
-        condition: service_healthy
-    ports:
-      - '3000:3000'
 
 volumes:
   postgres_data:

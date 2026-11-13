@@ -504,4 +504,16 @@ describe('API gateway', () => {
     await request(app.getHttpServer()).get('/health/ready').expect(503);
   });
 
+  it('serves the dashboard and SPA routes without capturing reserved backend routes', async () => {
+    await request(app.getHttpServer())
+      .get('/')
+      .expect(200, /Nest-served LedgerFlow dashboard/);
+    await request(app.getHttpServer())
+      .get('/transactions')
+      .expect(200, /Nest-served LedgerFlow dashboard/);
+
+    const missingApi = await request(app.getHttpServer()).get('/api/not-a-real-route').expect(404);
+    expect(missingApi.headers['content-type']).toContain('application/json');
+    expect(missingApi.text).not.toContain('Nest-served LedgerFlow dashboard');
+  });
 });

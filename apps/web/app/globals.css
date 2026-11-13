@@ -579,6 +579,9 @@ td {
 .two-columns {
   grid-template-columns: 1fr 1fr;
 }
+.three-columns {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 label {
   display: grid;
   gap: 8px;
@@ -686,6 +689,478 @@ select option {
   color: var(--faint);
   font-size: 11px;
   text-align: center;
+}
+.form-guidance {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.secondary-command-button {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: 9px;
+  color: var(--cyan);
+  background: rgba(34, 211, 238, 0.08);
+  font-weight: 600;
+}
+.secondary-command-button svg {
+  width: 17px;
+}
+.primary-button:disabled,
+.secondary-command-button:disabled,
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.exchange-grid {
+  display: grid;
+  grid-template-columns: minmax(500px, 1.35fr) minmax(280px, 0.65fr);
+  gap: 15px;
+}
+.fx-notice {
+  border-color: rgba(34, 211, 238, 0.24);
+}
+.fx-command-panel {
+  background:
+    radial-gradient(circle at 95% 0, rgba(34, 211, 238, 0.09), transparent 22rem), var(--surface);
+}
+.fx-command-panel .panel-header > svg {
+  width: 28px;
+  color: var(--cyan);
+}
+.fx-form {
+  display: grid;
+  gap: 17px;
+  margin-top: 22px;
+}
+.fx-pair-mark {
+  width: 35px;
+  height: 35px;
+  display: grid;
+  place-items: center;
+  margin: -8px auto;
+  border: 1px solid rgba(34, 211, 238, 0.24);
+  border-radius: 50%;
+  color: var(--cyan);
+  background: var(--surface-strong);
+}
+.fx-pair-mark svg {
+  width: 16px;
+}
+.secondary-button {
+  min-height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 9px;
+  color: var(--cyan);
+  background: rgba(34, 211, 238, 0.07);
+  font-weight: 600;
+}
+.secondary-button svg {
+  width: 16px;
+}
+.fx-quote {
+  display: grid;
+  gap: 15px;
+  padding: 17px;
+  border: 1px solid rgba(53, 228, 137, 0.25);
+  border-radius: 13px;
+  background: linear-gradient(145deg, rgba(53, 228, 137, 0.075), rgba(34, 211, 238, 0.035));
+}
+.fx-quote > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+.fx-quote small,
+.fx-quote p {
+  color: var(--muted);
+  font-size: 11px;
+}
+.fx-quote strong {
+  font-family: 'Fira Code', monospace;
+}
+.fx-quote p {
+  margin: 0;
+}
+.fx-quote-amount {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 15px;
+  padding: 14px;
+  border-radius: 10px;
+  background: rgba(5, 10, 20, 0.38);
+  font:
+    600 16px 'Fira Code',
+    monospace;
+}
+.fx-quote-amount svg {
+  width: 17px;
+  color: var(--cyan);
+}
+.fx-quote-amount strong {
+  color: var(--green);
+  text-align: right;
+}
+.fx-proof-panel h2 {
+  margin: 7px 0 20px;
+  font:
+    600 19px 'Fira Code',
+    monospace;
+}
+.fx-proof-panel > p:last-child {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.fx-leg {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 11px;
+  padding: 15px;
+  border-left: 3px solid var(--cyan);
+  border-radius: 8px;
+  background: rgba(34, 211, 238, 0.06);
+  color: var(--muted);
+  font-size: 12px;
+}
+.fx-leg.destination {
+  border-left-color: var(--green);
+  background: rgba(53, 228, 137, 0.06);
+}
+.fx-leg strong {
+  color: var(--text);
+}
+.fx-conversion-history td:first-child {
+  display: grid;
+}
+
+.funding-notice {
+  border-color: rgba(53, 228, 137, 0.2);
+  background: linear-gradient(90deg, rgba(53, 228, 137, 0.07), rgba(34, 211, 238, 0.04));
+}
+.funding-notice svg {
+  color: var(--green);
+}
+.funding-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr minmax(170px, 0.55fr);
+  gap: 12px;
+  margin-bottom: 15px;
+}
+.funding-metric {
+  min-height: 92px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 17px 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(20, 35, 58, 0.88), rgba(11, 21, 38, 0.78));
+  box-shadow: var(--shadow);
+}
+.funding-metric.compact {
+  justify-content: center;
+}
+.funding-metric-icon {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: var(--cyan);
+  background: rgba(34, 211, 238, 0.1);
+}
+.funding-metric-icon.wallet {
+  color: var(--green);
+  background: rgba(53, 228, 137, 0.1);
+}
+.funding-metric-icon svg {
+  width: 20px;
+}
+.funding-metric > div {
+  display: grid;
+  gap: 5px;
+}
+.funding-metric small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.funding-metric strong {
+  font:
+    600 20px 'Fira Code',
+    monospace;
+}
+.funding-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(420px, 1.3fr) minmax(290px, 0.7fr);
+  gap: 15px;
+}
+.admin-command-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.currency-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 15px;
+}
+.currency-metric {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface);
+}
+.currency-metric > div:not(.currency-metric-heading) {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.currency-metric > div:not(.currency-metric-heading) span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.currency-metric svg {
+  width: 13px;
+}
+.currency-metric > div:not(.currency-metric-heading) strong {
+  color: var(--text);
+  font:
+    600 11px 'Fira Code',
+    monospace;
+}
+.currency-metric-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.currency-metric-heading > strong {
+  color: var(--green);
+  font:
+    700 16px 'Fira Code',
+    monospace;
+}
+.currency-metric-heading > span {
+  color: var(--faint);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+.funding-command-panel {
+  background:
+    radial-gradient(circle at 90% 0, rgba(53, 228, 137, 0.08), transparent 18rem), var(--surface);
+}
+.cash-backed-chip,
+.history-count {
+  padding: 6px 9px;
+  border: 1px solid rgba(53, 228, 137, 0.22);
+  border-radius: 999px;
+  color: var(--green);
+  background: rgba(53, 228, 137, 0.07);
+  font:
+    500 10px 'Fira Code',
+    monospace;
+  text-transform: uppercase;
+}
+.panel-description {
+  max-width: 660px;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.wallet-funding-form {
+  display: grid;
+  gap: 17px;
+  margin-top: 22px;
+}
+.funding-entry-preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(5, 10, 20, 0.32);
+}
+.funding-entry-preview > div {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 9px;
+  background: rgba(148, 163, 184, 0.04);
+}
+.funding-entry-preview > div > span:nth-child(2) {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.funding-entry-preview small {
+  color: var(--faint);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.funding-entry-preview strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.funding-entry-preview code {
+  color: var(--text);
+  font-size: 11px;
+}
+.entry-icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+}
+.entry-icon svg {
+  width: 15px;
+}
+.entry-debit {
+  color: var(--cyan);
+  background: rgba(34, 211, 238, 0.1);
+}
+.entry-credit {
+  color: var(--green);
+  background: rgba(53, 228, 137, 0.1);
+}
+.wallet-directory {
+  display: grid;
+  gap: 9px;
+  margin-top: 22px;
+}
+.wallet-directory article {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 11px;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: rgba(5, 10, 20, 0.3);
+}
+.wallet-avatar {
+  width: 35px;
+  height: 35px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--green);
+  background: rgba(53, 228, 137, 0.09);
+  font:
+    600 10px 'Fira Code',
+    monospace;
+}
+.wallet-directory article > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.wallet-directory article > div strong {
+  font-size: 13px;
+}
+.wallet-directory article code {
+  color: var(--faint);
+  font-size: 9px;
+}
+.wallet-directory article > strong {
+  font:
+    600 13px 'Fira Code',
+    monospace;
+}
+.grouped-wallet-directory {
+  margin-top: 15px;
+}
+.grouped-wallet-directory .wallet-directory article {
+  grid-template-columns: auto minmax(140px, 0.4fr) 1fr;
+}
+.balance-chip-list {
+  display: flex !important;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px !important;
+}
+.balance-chip-list > span {
+  display: grid;
+  gap: 3px;
+  min-width: 94px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(5, 10, 20, 0.36);
+  text-align: right;
+}
+.balance-chip-list small {
+  color: var(--cyan);
+  font:
+    600 9px 'Fira Code',
+    monospace;
+}
+.balance-chip-list strong {
+  font:
+    600 11px 'Fira Code',
+    monospace;
+}
+.funding-history-panel {
+  margin-top: 15px;
+}
+.funding-table-wrap td:first-child {
+  display: grid;
+  gap: 4px;
+}
+.sub-id {
+  max-width: 210px;
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 9px;
+  text-overflow: ellipsis;
+}
+.journal-reference {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font:
+    500 10px 'Fira Code',
+    monospace;
+}
+.journal-reference svg {
+  width: 14px;
+  color: var(--cyan);
+}
+.funding-amount {
+  color: var(--green);
+}
+.empty-funding-state {
+  margin-top: 18px;
+  padding: 28px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 11px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 13px;
 }
 
 .journal-panel {
@@ -814,16 +1289,27 @@ select option {
   display: none;
 }
 
+@media (max-width: 1280px) {
+  .split-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1080px) {
   .metric-grid {
     grid-template-columns: repeat(2, 1fr);
   }
   .dashboard-grid,
-  .split-layout {
+  .split-layout,
+  .funding-workspace-grid,
+  .exchange-grid {
     grid-template-columns: 1fr;
   }
   .split-layout .activity-panel {
     margin-top: 0;
+  }
+  .currency-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -898,7 +1384,28 @@ select option {
     color: var(--green);
     background: rgba(53, 228, 137, 0.1);
   }
-  .two-columns {
+  .two-columns,
+  .three-columns {
+    grid-template-columns: 1fr;
+  }
+  .currency-metrics {
+    grid-template-columns: 1fr;
+  }
+  .grouped-wallet-directory .wallet-directory article {
+    grid-template-columns: auto 1fr;
+  }
+  .balance-chip-list {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+  .funding-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+  .funding-metric.compact {
+    grid-column: 1 / -1;
+    min-height: 72px;
+  }
+  .funding-entry-preview {
     grid-template-columns: 1fr;
   }
   .posting-row {
@@ -920,6 +1427,12 @@ select option {
 @media (max-width: 480px) {
   .metric-grid {
     grid-template-columns: 1fr;
+  }
+  .funding-metrics {
+    grid-template-columns: 1fr;
+  }
+  .funding-metric.compact {
+    grid-column: auto;
   }
   .metric-card {
     min-height: 120px;

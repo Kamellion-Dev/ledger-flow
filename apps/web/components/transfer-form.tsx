@@ -1,57 +1,171 @@
-'use client';
-
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { ArrowRight, ShieldCheck } from 'lucide-react';
+import type { Currency, TransferView, WalletView } from '@ledgerflow/contracts';
+import { formatMoney, parseMoneyInputToMinor } from '../lib/format';
 
 export interface TransferInput {
-  sourceAccountId: string;
-  destinationAccountId: string;
+  sourceWalletId: string;
+  destinationWalletId: string;
   amountMinor: number;
+  currency: Currency;
   reference: string;
 }
 
-export function TransferForm({ onSubmit }: { onSubmit?: (input: TransferInput) => void }) {
-  const [source, setSource] = useState('wallet-alice');
-  const [destination, setDestination] = useState('wallet-bob');
+interface TransferFormProps {
+  wallets: WalletView[];
+  onSubmit?: (input: TransferInput, idempotencyKey: string) => Promise<TransferView>;
+}
+
+function preferredCurrency(source: WalletView | undefined, wallets: WalletView[]): Currency {
+  return (
+    source?.balances.find((balance) =>
+      wallets.some(
+        (wallet) =>
+          wallet.id !== source.id &&
+          wallet.balances.some((candidate) => candidate.currency === balance.currency),
+      ),
+    )?.currency ??
+    source?.balances[0]?.currency ??
+    'USD'
+  );
+}
+
+export function TransferForm({ wallets, onSubmit }: TransferFormProps) {
+  const firstSource = wallets[0];
+  const firstCurrency = preferredCurrency(firstSource, wallets);
+  const initialDestinations = wallets.filter(
+    (wallet) =>
+      wallet.id !== firstSource?.id && wallet.balances.some((b) => b.currency === firstCurrency),
+  );
+  const [sourceId, setSourceId] = useState(firstSource?.id ?? '');
+  const [currency, setCurrency] = useState<Currency>(firstCurrency);
+  const [destinationId, setDestinationId] = useState(initialDestinations[0]?.id ?? '');
   const [amount, setAmount] = useState('25.00');
   const [reference, setReference] = useState('Dinner split');
   const [error, setError] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [created, setCreated] = useState<TransferView>();
+  const submissionInFlight = useRef(false);
+  const idempotencyKey = useRef(globalThis.crypto.randomUUID());
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  const source = wallets.find((wallet) => wallet.id === sourceId);
+  const balances = source?.balances ?? [];
+  const selectedBalance = balances.find((balance) => balance.currency === currency);
+  const destinations = wallets.filter(
+    (wallet) =>
+      wallet.id !== sourceId && wallet.balances.some((balance) => balance.currency === currency),
+  );
+
+  function resetIntent() {
+    idempotencyKey.current = globalThis.crypto.randomUUID();
+    setError('');
+    setCreated(undefined);
+  }
+
+  function changeSource(nextSourceId: string) {
+    resetIntent();
+    const nextSource = wallets.find((wallet) => wallet.id === nextSourceId);
+    const nextCurrency = preferredCurrency(nextSource, wallets);
+    const nextDestination = wallets.find(
+      (wallet) =>
+        wallet.id !== nextSourceId && wallet.balances.some((b) => b.currency === nextCurrency),
+    );
+    setSourceId(nextSourceId);
+    setCurrency(nextCurrency);
+    setDestinationId(nextDestination?.id ?? '');
+  }
+
+  function changeCurrency(nextCurrency: Currency) {
+    resetIntent();
+    const nextDestination = wallets.find(
+      (wallet) =>
+        wallet.id !== sourceId && wallet.balances.some((b) => b.currency === nextCurrency),
+    );
+    setCurrency(nextCurrency);
+    setDestinationId(nextDestination?.id ?? '');
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const numericAmount = Number(amount);
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+    if (submissionInFlight.current) return;
+    let amountMinor: number;
+    try {
+      amountMinor = parseMoneyInputToMinor(amount);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Enter a valid amount.');
+      return;
+    }
+    if (amountMinor <= 0) {
       setError('Enter a positive amount greater than zero.');
       return;
     }
-    if (source === destination) {
-      setError('Choose two different wallet accounts.');
+    if (!sourceId || !destinationId) {
+      setError(`No other customer has a ${currency} balance.`);
       return;
     }
+    submissionInFlight.current = true;
+    setSubmitting(true);
     setError('');
-    onSubmit?.({
-      sourceAccountId: source,
-      destinationAccountId: destination,
-      amountMinor: Math.round(numericAmount * 100),
-      reference,
-    });
-    setSubmitted(true);
+    setCreated(undefined);
+    try {
+      if (!onSubmit) throw new Error('Transfer service is unavailable.');
+      setCreated(
+        await onSubmit(
+          {
+            sourceWalletId: sourceId,
+            destinationWalletId: destinationId,
+            amountMinor,
+            currency,
+            reference,
+          },
+          idempotencyKey.current,
+        ),
+      );
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to create the transfer.');
+    } finally {
+      submissionInFlight.current = false;
+      setSubmitting(false);
+    }
   }
 
   return (
-    <form className="transfer-form" onSubmit={submit} noValidate>
-      <div className="form-row two-columns">
+    <form
+      className="transfer-form"
+      onSubmit={(event) => {
+        void submit(event);
+      }}
+      noValidate
+    >
+      <div className="form-row three-columns">
         <label htmlFor="source-account">
           <span>From account</span>
           <select
             id="source-account"
             aria-label="From account"
-            value={source}
-            onChange={(event) => setSource(event.target.value)}
+            value={sourceId}
+            onChange={(e) => changeSource(e.target.value)}
           >
-            <option value="wallet-alice">Alice Wallet · $100.00</option>
-            <option value="wallet-bob">Bob Wallet · $50.00</option>
+            {wallets.map((wallet) => (
+              <option value={wallet.id} key={wallet.id}>
+                {wallet.ownerName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label htmlFor="source-currency">
+          <span>Wallet currency</span>
+          <select
+            id="source-currency"
+            aria-label="Wallet currency"
+            value={currency}
+            onChange={(e) => changeCurrency(e.target.value as Currency)}
+          >
+            {balances.map((balance) => (
+              <option value={balance.currency} key={balance.currency}>
+                {balance.currency} · {formatMoney(balance.balanceMinor, balance.currency)}
+              </option>
+            ))}
           </select>
         </label>
         <label htmlFor="destination-account">
@@ -59,11 +173,21 @@ export function TransferForm({ onSubmit }: { onSubmit?: (input: TransferInput) =
           <select
             id="destination-account"
             aria-label="To account"
-            value={destination}
-            onChange={(event) => setDestination(event.target.value)}
+            value={destinationId}
+            disabled={destinations.length === 0}
+            onChange={(e) => {
+              resetIntent();
+              setDestinationId(e.target.value);
+            }}
           >
-            <option value="wallet-bob">Bob Wallet · $50.00</option>
-            <option value="wallet-alice">Alice Wallet · $100.00</option>
+            {destinations.map((wallet) => {
+              const balance = wallet.balances.find((item) => item.currency === currency)!;
+              return (
+                <option value={wallet.id} key={wallet.id}>
+                  {wallet.ownerName} · {formatMoney(balance.balanceMinor, currency)}
+                </option>
+              );
+            })}
           </select>
         </label>
       </div>
@@ -74,15 +198,18 @@ export function TransferForm({ onSubmit }: { onSubmit?: (input: TransferInput) =
         <label htmlFor="transfer-amount">
           <span>Amount</span>
           <div className="money-input">
-            <span>$</span>
+            <span>{currency}</span>
             <input
               id="transfer-amount"
               aria-label="Amount"
               inputMode="decimal"
               value={amount}
-              onChange={(event) => setAmount(event.target.value)}
+              onChange={(e) => {
+                resetIntent();
+                setAmount(e.target.value);
+              }}
             />
-            <span>USD</span>
+            <span>{currency}</span>
           </div>
         </label>
         <label htmlFor="transfer-reference">
@@ -92,25 +219,39 @@ export function TransferForm({ onSubmit }: { onSubmit?: (input: TransferInput) =
             aria-label="Reference"
             value={reference}
             maxLength={140}
-            onChange={(event) => setReference(event.target.value)}
+            onChange={(e) => {
+              resetIntent();
+              setReference(e.target.value);
+            }}
           />
         </label>
       </div>
+      {!destinationId ? (
+        <p className="form-guidance">
+          No other customer has a {currency} balance. Create one in Ledger first.
+        </p>
+      ) : null}
+      <button
+        className="primary-button"
+        type="submit"
+        disabled={submitting || !destinationId || !selectedBalance}
+      >
+        {submitting ? 'Creating transfer…' : 'Create transfer'} <ArrowRight aria-hidden="true" />
+      </button>
       {error ? (
         <p className="form-error" role="alert">
           {error}
         </p>
       ) : null}
-      {submitted && !error ? (
+      {created && !error ? (
         <p className="form-success" role="status">
-          <ShieldCheck aria-hidden="true" /> Demo transfer validated. Connect the local API to post
-          it.
+          <ShieldCheck aria-hidden="true" /> Transfer {created.id} created with status{' '}
+          {created.status}.
         </p>
       ) : null}
-      <button className="primary-button" type="submit">
-        Create transfer <ArrowRight aria-hidden="true" />
-      </button>
-      <p className="form-footnote">A unique idempotency key is created for every submission.</p>
+      <p className="form-footnote">
+        Repeated submissions reuse one idempotency key until the transfer details change.
+      </p>
     </form>
   );
 }

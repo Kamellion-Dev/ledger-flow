@@ -1,9 +1,5 @@
-'use client';
-
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { Activity, ArrowLeftRight, BookOpen, Layers3, Radio, WalletCards } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 
 const navigation = [
   { href: '/', label: 'Overview', icon: Activity },
@@ -12,31 +8,31 @@ const navigation = [
   { href: '/settlements', label: 'Settlements', icon: Layers3 },
 ];
 
-export function AppShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
+export function AppShell() {
+  const { pathname } = useLocation();
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <Link className="brand" href="/" aria-label="LedgerFlow overview">
+        <NavLink className="brand" to="/" aria-label="LedgerFlow overview">
           <span className="brand-mark">
             <WalletCards aria-hidden="true" />
           </span>
           <span>
             Ledger<span>Flow</span>
           </span>
-        </Link>
+        </NavLink>
         <nav aria-label="Primary navigation">
           {navigation.map(({ href, label, icon: Icon }) => (
-            <Link className={pathname === href ? 'active' : ''} href={href} key={href}>
+            <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to={href} key={href}>
               <Icon aria-hidden="true" /> <span>{label}</span>
-            </Link>
+            </NavLink>
           ))}
         </nav>
         <div className="environment-card">
           <Radio aria-hidden="true" />
           <div>
             <strong>Local sandbox</strong>
-            <span>Simulated USD only</span>
+            <span>USD · EUR · GBP · EGP</span>
           </div>
         </div>
       </aside>
@@ -54,14 +50,16 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           </div>
         </header>
-        <main>{children}</main>
+        <main>
+          <Outlet />
+        </main>
       </div>
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {navigation.map(({ href, label, icon: Icon }) => (
-          <Link className={pathname === href ? 'active' : ''} href={href} key={href}>
+          <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to={href} key={href}>
             <Icon aria-hidden="true" />
             <span>{label}</span>
-          </Link>
+          </NavLink>
         ))}
       </nav>
     </div>

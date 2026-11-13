@@ -1,9 +1,11 @@
 import { RotateCw } from 'lucide-react';
 import { StatusBadge } from '../../components/status-badge';
-import { demoSettlements } from '../../lib/demo-data';
 import { formatDateTime } from '../../lib/format';
+import { PageState, useLedgerFlow } from '../ledgerflow-provider';
 
-export default function SettlementsPage() {
+export function SettlementsPage() {
+  const { status, error, settlements } = useLedgerFlow();
+  if (status !== 'ready') return <PageState status={status} error={error} />;
   return (
     <section className="panel activity-panel">
       <div className="panel-header">
@@ -27,7 +29,7 @@ export default function SettlementsPage() {
             </tr>
           </thead>
           <tbody>
-            {demoSettlements.map((settlement) => (
+            {settlements.map((settlement) => (
               <tr key={settlement.id}>
                 <td className="mono-cell">{settlement.id}</td>
                 <td className="mono-cell">{settlement.transferId}</td>
@@ -42,6 +44,11 @@ export default function SettlementsPage() {
                 </td>
               </tr>
             ))}
+            {settlements.length === 0 ? (
+              <tr>
+                <td colSpan={5}>No settlement events have been processed yet.</td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>

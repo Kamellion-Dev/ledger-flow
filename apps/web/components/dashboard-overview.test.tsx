@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { DashboardSummary } from '@ledgerflow/contracts';
+import { MemoryRouter } from 'react-router-dom';
 import { DashboardOverview } from './dashboard-overview';
 
 const summary: DashboardSummary = {
@@ -20,7 +21,11 @@ const summary: DashboardSummary = {
 
 describe('DashboardOverview', () => {
   it('renders financial metrics with explicit simulated-money context', () => {
-    render(<DashboardOverview summary={summary} />);
+    render(
+      <MemoryRouter>
+        <DashboardOverview summary={summary} />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByText('$1,824.50')).toBeInTheDocument();
     expect(screen.getByText('42 settled')).toBeInTheDocument();

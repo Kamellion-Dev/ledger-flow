@@ -1,9 +1,12 @@
 FROM node:24-bookworm-slim
 
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
 
 WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
 COPY apps/api-gateway/package.json apps/api-gateway/package.json
@@ -18,4 +21,4 @@ RUN npm ci --include=dev
 COPY . .
 RUN npm run build
 
-EXPOSE 3000 3001 50051
+EXPOSE 3000 50051
