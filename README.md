@@ -88,6 +88,16 @@ The ledger service is the only PostgreSQL owner. Redis is coordination data, not
 - Separate liveness and dependency-readiness endpoints.
 - Responsive, accessible operations dashboard with reduced-motion support.
 
+## Screenshots
+
+The dashboard below shows the local simulator after exercising the seeded accounts through several funding and transfer commands. No real funds or external payment rails are involved.
+
+![LedgerFlow financial operations overview](docs/images/ledgerflow-overview.png)
+
+The Ledger page is available immediately after first startup. The seed creates the platform cash accounts, Alice and Bob customer wallets, and their initial currency balances; operators can then add another supported currency or post a cash-backed top-up.
+
+![LedgerFlow multi-currency wallet administration](docs/images/ledgerflow-wallet-operations.png)
+
 ## Technology
 
 | Area             | Stack                                                |
@@ -135,7 +145,13 @@ Open:
 - Readiness: <http://localhost:3000/health/ready>
 - RabbitMQ management: <http://localhost:15672> (`ledgerflow` / `ledgerflow`)
 
-The ledger container applies the checked-in Prisma migration and seeds demo accounts before starting gRPC.
+On first startup, the ledger container applies the checked-in Prisma migrations and runs the idempotent seed before starting gRPC. The seed creates:
+
+- Platform Cash accounts for USD, EUR, GBP, and EGP;
+- Alice with USD and EUR balances;
+- Bob with USD and GBP balances.
+
+Stable IDs and Prisma `upsert` calls make the seed safe to repeat. Restarting the stack restores missing demo records without duplicating wallets or resetting balances changed through the application. Transaction and settlement history is created only when the demo commands run, so the seed does not fabricate financial activity.
 
 Stop the services with `docker compose down`. Add `-v` only when you intentionally want to remove local PostgreSQL and Redis data.
 
