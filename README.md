@@ -33,6 +33,39 @@ LedgerFlow separates four simulated financial workflows:
 
 Every money-mutating command—funding, transfer, reversal, and confirmed FX conversion—is protected by an idempotency key. PostgreSQL transaction-scoped advisory locks serialize concurrent requests using the same key before the stored request hash is checked. FX quote creation does not change balances, while duplicate currency-balance creation is prevented by a unique `(wallet, currency)` constraint and returns a conflict.
 
+## What the project demonstrates
+
+- One Alice customer account with USD/EUR balances and one Bob account with USD/GBP balances.
+- Same-currency transfers between different customers using public wallet IDs rather than ledger account IDs.
+- Admin creation of any missing USD/EUR/GBP/EGP balance and top-up of any existing balance.
+- Frankfurter-backed reference-rate quotes with exact decimal/rational snapshots and 15-minute expiry.
+- Atomic, idempotent four-account FX conversion with currency-tagged postings.
+- Operator wallet funding backed by incoming Platform Cash, posted as `Debit Asset / Credit Liability`.
+- Integer minor-unit money (`$25.00` is stored as `2500`), never floating-point ledger amounts.
+- Balanced debit and credit postings for every journal.
+- Immutable posting history and explicit compensating reversals.
+- Request idempotency with payload-conflict detection.
+- Transaction-scoped PostgreSQL advisory locks that serialize concurrent retries of one command.
+- Conditional balance updates that prevent concurrent transfers from spending the same funds.
+- Transactional outbox with persistent RabbitMQ messages.
+- Manual acknowledgement after successful simulated-settlement event handling.
+- Deterministic simulated-settlement result IDs for safe replay.
+- Demo JWT authentication, operator authorization, request validation, correlation IDs, and Swagger.
+- Separate liveness and dependency-readiness endpoints.
+- Responsive, accessible operations dashboard with reduced-motion support.
+
+## Screenshots
+
+| Operations overview                                                              | Wallet administration                                                                            |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| ![LedgerFlow financial operations overview](docs/images/ledgerflow-overview.png) | ![LedgerFlow multi-currency wallet administration](docs/images/ledgerflow-wallet-operations.png) |
+
+Both screens use seeded simulator data. No real funds, customer accounts, bank connections, or external payment rails are involved.
+
+## How the boundaries work
+
+The API gateway owns HTTP authentication, request validation, and REST-to-gRPC translation. The ledger service is the only PostgreSQL owner and the only component allowed to mutate balances or journals. PostgreSQL stores financial truth and outbox state; RabbitMQ transports simulated-settlement events; Redis stores replay coordination only. A Redis reset cannot change ledger balances or posting history.
+
 ## Architecture
 
 ```mermaid
@@ -67,37 +100,6 @@ The ledger service is the only PostgreSQL owner. Redis is coordination data, not
 | Reverse a transfer           | `POST /api/transactions/:id/reverse` → gRPC → one Prisma transaction                                                        | Create a compensating journal, reverse the balances, and preserve the original journal. The reversal is currently an API/Swagger workflow, not a dashboard action. |
 | Check service readiness      | `/health/live` and `/health/ready`                                                                                          | Liveness reports the gateway process; readiness verifies the gRPC ledger dependency.                                                                               |
 
-## What is implemented
-
-- One Alice customer account with USD/EUR balances and one Bob account with USD/GBP balances.
-- Same-currency transfers between different customers using public wallet IDs rather than ledger account IDs.
-- Admin creation of any missing USD/EUR/GBP/EGP balance and top-up of any existing balance.
-- Frankfurter-backed reference-rate quotes with exact decimal/rational snapshots and 15-minute expiry.
-- Atomic, idempotent four-account FX conversion with currency-tagged postings.
-- Operator wallet funding backed by incoming Platform Cash, posted as `Debit Asset / Credit Liability`.
-- Integer minor-unit money (`$25.00` is stored as `2500`), never floating-point ledger amounts.
-- Balanced debit and credit postings for every journal.
-- Immutable posting history and explicit compensating reversals.
-- Request idempotency with payload-conflict detection.
-- Transaction-scoped PostgreSQL advisory locks that serialize concurrent retries of one command.
-- Conditional balance updates that prevent concurrent transfers from spending the same funds.
-- Transactional outbox with persistent RabbitMQ messages.
-- Manual acknowledgement after successful simulated-settlement event handling.
-- Deterministic simulated-settlement result IDs for safe replay.
-- Demo JWT authentication, operator authorization, request validation, correlation IDs, and Swagger.
-- Separate liveness and dependency-readiness endpoints.
-- Responsive, accessible operations dashboard with reduced-motion support.
-
-## Screenshots
-
-The dashboard below shows the local simulator after exercising the seeded accounts through several funding and transfer commands. No real funds or external payment rails are involved.
-
-![LedgerFlow financial operations overview](docs/images/ledgerflow-overview.png)
-
-The Ledger page is available immediately after first startup. The seed creates the platform cash accounts, Alice and Bob customer wallets, and their initial currency balances; operators can then add another supported currency or post a cash-backed top-up.
-
-![LedgerFlow multi-currency wallet administration](docs/images/ledgerflow-wallet-operations.png)
-
 ## Technology
 
 | Area             | Stack                                                |
@@ -125,7 +127,7 @@ docs/
   superpowers/plans/   implementation plan and verification scope
 ```
 
-## Quick start with Docker
+## Local Quick Start
 
 ### Prerequisites
 
@@ -166,7 +168,7 @@ Stop the services with `docker compose down`. Add `-v` only when you intentional
 
 There is intentionally no `/exchange` dashboard page. Unknown dashboard routes redirect to the overview, while FX quote and conversion operations remain available through REST and Swagger.
 
-## Run without Docker
+### Run without Docker
 
 Infrastructure still needs PostgreSQL, RabbitMQ, and Redis. Copy the example environment and update connection strings if necessary:
 
@@ -185,7 +187,7 @@ The non-Docker development command runs the Vite dashboard at <http://localhost:
 
 `FRANKFURTER_BASE_URL` defaults to `https://api.frankfurter.dev/v2`. The provider needs no API key. LedgerFlow requests CSV so the published decimal rate can be parsed and persisted exactly; changing this URL is intended for a compatible proxy or deterministic test stub.
 
-## Demo credentials
+## Demo Accounts
 
 ```text
 Email:    operator@ledgerflow.local
@@ -194,7 +196,7 @@ Password: ledgerflow-demo
 
 These credentials and the default JWT secret are for local simulation only.
 
-## Demo workflow
+### Suggested reviewer walkthrough
 
 1. Open the dashboard and confirm the **Local sandbox** indicator.
 2. The local dashboard signs in with the documented demo operator account.
@@ -209,7 +211,7 @@ These credentials and the default JWT secret are for local simulation only.
 
 The dashboard reads financial state from the live NestJS API when it loads and after dashboard mutations. It does not currently poll in the background, so asynchronous settlement changes require a reload.
 
-## API example
+## API Docs
 
 Get a token:
 
@@ -317,7 +319,7 @@ Important routes:
 - FX conversion is synchronous and does not enter the RabbitMQ settlement pipeline.
 - Consumer acknowledgement happens only after successful processing.
 
-## Quality checks
+## Testing
 
 ```bash
 npm run format:check
@@ -347,9 +349,20 @@ npm test -w @ledgerflow/web
 - RabbitMQ messages are persistent and queues are durable.
 - Readiness fails when gRPC is unavailable while liveness stays available.
 
-## Security and safety
+## Deployment
+
+LedgerFlow is designed and tested as a local Docker Compose demonstration. No hosted environment is claimed. A production deployment would need managed PostgreSQL, RabbitMQ, and Redis; encrypted service-to-service traffic; managed secrets; backups; metrics; alerting; and an explicit recovery plan.
+
+## Security
 
 LedgerFlow is an educational simulator, not a PCI-compliant payment system. Do not connect it to real accounts, store customer secrets, or reuse the demo credentials. Production work would require managed secrets, TLS/mTLS, rate limits, audited authorization, encrypted backups, KYC/AML controls, fraud monitoring, data retention rules, and independent security review.
+
+## Trade-offs
+
+- A dedicated gRPC ledger owner makes the write boundary explicit, but adds another service and contract to operate.
+- The transactional outbox avoids publishing uncommitted transfers, but settlement is intentionally at least once and consumers must remain idempotent.
+- Redis improves replay coordination, but PostgreSQL remains authoritative so the system does not depend on cache durability for financial correctness.
+- Exact integer/rational FX arithmetic avoids floating-point balance changes, but the simulator supports only four two-decimal currencies and omits spreads and fees.
 
 ## Limitations
 
